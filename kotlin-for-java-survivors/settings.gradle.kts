@@ -26,3 +26,4 @@ rootProject.name = "kotlin-for-java-survivors"
 include(":language:testkit")
 include(":language:part01-life-after-semicolons")
 include(":language:part02-the-billion-dollar-fix")
+include(":language:part03-classes-without-ceremony")
