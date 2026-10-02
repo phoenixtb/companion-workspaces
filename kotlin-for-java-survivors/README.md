@@ -8,7 +8,7 @@ Every Kotlin block in the posts lives here, compiles, and has its printed output
 
 | Tool | Version |
 | --- | --- |
-| JDK | 25 (Gradle provisions nothing; point `JAVA_HOME` at a JDK 25) |
+| JDK | 25 (Gradle downloads one through the foojay resolver if none is installed) |
 | Gradle | Use the wrapper (`./gradlew`, Gradle 9.7.1) |
 | Docker | Needed only for Act III integration tests and `infra/compose.yaml` |
 

@@ -14,7 +14,9 @@ import java.lang.reflect.InvocationTargetException
  * The test runs `main`, captures stdout, and compares it line by line with the
  * `// -> expected` comments in the source, in the order they appear. A `…` in an
  * expected line matches any text (for timings, random ids and hash codes).
- * Whole-line comments are ignored, so commented-out compile errors never count.
+ * Whole-line comments are ignored, so commented-out compile errors never count,
+ * except a whole-line `// -> …`, which continues the expected output of the
+ * statement above it (for values that print several lines).
  *
  * Usage in a module:
  *
@@ -54,6 +56,7 @@ private fun sourceRoots(): List<File> =
         .filter { it.isDirectory }
 
 private val EXPECTED = Regex("""//\s*->\s?(.*)$""")
+private val CONTINUATION = Regex("""^\s*//\s*->.*$""")
 private val PACKAGE = Regex("""^\s*package\s+([\w.]+)""", RegexOption.MULTILINE)
 private val JVM_NAME = Regex("""@file:JvmName\("(\w+)"\)""")
 private val KOTLIN_MAIN = Regex("""^(suspend\s+)?fun\s+main\s*\(""", RegexOption.MULTILINE)
@@ -92,7 +95,7 @@ private class Example(val displayName: String, val className: String, val expect
                 else -> JVM_NAME.find(source)?.groupValues?.get(1) ?: (file.nameWithoutExtension + "Kt")
             }
             val expected = source.lines()
-                .filterNot { it.trimStart().startsWith("//") }
+                .filterNot { it.trimStart().startsWith("//") && !CONTINUATION.matches(it) }
                 .mapNotNull { line -> EXPECTED.find(line)?.groupValues?.get(1)?.trimEnd() }
             return Example(
                 displayName = file.relativeTo(root).path,
