@@ -33,6 +33,7 @@ sealed interface StockLevel {
     data class InStock(val units: Int) : StockLevel
     data class Low(val units: Int) : StockLevel
     data object OutOfStock : StockLevel
+    data class Discontinued(val reason: String) : StockLevel // no separate 'active' flag to contradict it
 }
 
 // Step 2 (continued): the product itself is an immutable data class. Changes produce new instances.
@@ -42,7 +43,6 @@ data class Product(
     val name: String,
     val price: Paise,
     val stock: StockLevel,
-    val active: Boolean = true,
 )
 
 // Step 3: everything that can happen to a product, as a sealed hierarchy of events.
@@ -63,7 +63,7 @@ fun applyEvent(current: Product?, event: CatalogEvent): Product = when (event) {
     is CatalogEvent.ProductAdded -> event.product
     is CatalogEvent.PriceChanged -> requireNotNull(current).copy(price = event.to)
     is CatalogEvent.StockChanged -> requireNotNull(current).copy(stock = event.level)
-    is CatalogEvent.Discontinued -> requireNotNull(current).copy(active = false, stock = StockLevel.OutOfStock)
+    is CatalogEvent.Discontinued -> requireNotNull(current).copy(stock = StockLevel.Discontinued(event.reason))
 }
 
 fun describe(event: CatalogEvent): String = when (event) {
@@ -72,9 +72,6 @@ fun describe(event: CatalogEvent): String = when (event) {
     is CatalogEvent.StockChanged -> "stock -> ${event.level}"
     is CatalogEvent.Discontinued -> "discontinued (${event.reason})"
 }
-
-// The label function from the incident, now with types that can't be swapped.
-fun shelfLabel(sku: Sku, barcode: Barcode, price: Paise): String = "$sku [$barcode] $price"
 
 fun main() {
     val sku = Sku("SHW-1001")
@@ -98,9 +95,5 @@ fun main() {
     // -> SHW-1001: discontinued (supplier change)
 
     println(product)
-    // -> Product(sku=SHW-1001, barcode=8901234567890, name=Toor Dal 1kg, price=₹159.00, stock=OutOfStock, active=false)
-
-    val final = requireNotNull(product)
-    println(shelfLabel(final.sku, final.barcode, final.price)) // -> SHW-1001 [8901234567890] ₹159.00
-    // shelfLabel(final.barcode, final.sku, final.price)  // error: argument type mismatch: actual type is 'Barcode', but 'Sku' was expected.
+    // -> Product(sku=SHW-1001, barcode=8901234567890, name=Toor Dal 1kg, price=₹159.00, stock=Discontinued(reason=supplier change))
 }

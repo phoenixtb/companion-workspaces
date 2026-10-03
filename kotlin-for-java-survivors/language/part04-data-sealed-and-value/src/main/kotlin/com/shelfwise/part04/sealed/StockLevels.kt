@@ -13,7 +13,7 @@ fun shelfBadge(level: StockLevel): String = when (level) {
     is StockLevel.InStock if level.units > 100 -> "BULK BUY" // guard condition
     is StockLevel.InStock -> ""
     is StockLevel.Low -> "LAST ${level.units}"
-    StockLevel.OutOfStock -> "SOLD OUT" // a data object needs no 'is'
+    StockLevel.OutOfStock -> "SOLD OUT" // an object is matched by equality, no 'is' needed
     is StockLevel.Discontinued ->
         if (level.replacementSku != null) "TRY ${level.replacementSku}" else "DISCONTINUED"
 }
