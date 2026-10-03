@@ -1,0 +1,4 @@
+# ktlint reads its rules from .editorconfig. The default style, ktlint_official, is stricter than
+# IntelliJ's formatter; intellij_idea agrees with what Reformat Code already does.
+[*.{kt,kts}]
+ktlint_code_style = intellij_idea

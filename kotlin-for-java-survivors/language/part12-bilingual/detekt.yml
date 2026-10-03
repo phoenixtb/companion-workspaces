@@ -1,0 +1,4 @@
+# Only the differences from detekt's defaults (buildUponDefaultConfig = true in build.gradle.kts).
+style:
+  MagicNumber:
+    active: false # example code is full of literal prices; keep this rule on in production modules
