@@ -3,7 +3,9 @@ package com.shelfwise.catalog.web
 import com.shelfwise.catalog.product.Category
 import com.shelfwise.catalog.product.ProductService
 import jakarta.validation.Valid
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import java.net.URI
 
@@ -30,6 +33,10 @@ class ProductController(private val catalog: ProductService) {
         val product = catalog.create(request.toNewProduct())
         return ResponseEntity.created(URI.create("/api/products/${product.sku}")).body(product.toResponse())
     }
+
+    @DeleteMapping("/{sku}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun delete(@PathVariable sku: String) = catalog.delete(sku)
 
     @PutMapping("/{sku}/price")
     fun reprice(@PathVariable sku: String, @Valid @RequestBody request: RepriceRequest): ProductResponse =

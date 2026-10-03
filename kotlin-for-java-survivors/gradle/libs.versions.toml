@@ -17,6 +17,7 @@ jspecify = "1.0.0"
 # Act III
 spring-boot = "4.1.1"
 spring-dependency-management = "1.1.7"
+kafka = "4.2.1" # the version Boot 4.1.1 manages, so the shared module matches both services
 
 [libraries]
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -39,6 +40,7 @@ junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }

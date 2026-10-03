@@ -1,6 +1,8 @@
 spring:
   application:
     name: product-catalog-service
+  reactor:
+    context-propagation: auto # ThreadLocals such as the MDC request id follow suspend handlers across threads
   threads:
     virtual:
       enabled: true # Tomcat request threads (and @Async, schedulers) become virtual threads
@@ -8,6 +10,18 @@ spring:
     url: jdbc:postgresql://localhost:5432/catalog
     username: shelfwise
     password: shelfwise
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      value-serializer: com.shelfwise.events.ProductEventSerializer # kotlinx.serialization, from shared/product-events
+      acks: all # the default since Kafka 3.0: acknowledged means replicated, which the post relies on
+      properties:
+        max.block.ms: 5000 # send() can block on broker metadata after commit: cap how long a request waits
+  http:
+    serviceclient:
+      suppliers:
+        base-url: http://localhost:8090 # the suppliers' quote gateway
+        read-timeout: 2s
   jpa:
     open-in-view: false # no lazy loading during view rendering: fetch what the response needs
     hibernate:

@@ -1,9 +1,16 @@
 package com.shelfwise.catalog.product
 
+import com.shelfwise.events.ProductCreated
+import com.shelfwise.events.ProductDeleted
+import com.shelfwise.events.ProductSnapshot
+import com.shelfwise.events.ProductUpdated
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.io.Reader
 import java.time.Clock
+import kotlin.time.toKotlinInstant
+import kotlin.uuid.Uuid
 
 data class NewProduct(
     val sku: String,
@@ -21,6 +28,7 @@ class ProductService(
     private val products: ProductRepository,
     private val suppliers: SupplierRepository,
     private val clock: Clock,
+    private val events: ApplicationEventPublisher,
 ) {
     fun bySku(sku: String): Product = products.findBySku(sku) ?: throw ProductNotFound(sku)
 
@@ -31,7 +39,7 @@ class ProductService(
     fun create(new: NewProduct): Product {
         if (products.existsBySku(new.sku)) throw DuplicateSku(new.sku)
         val supplier = suppliers.findByCode(new.supplierCode) ?: throw UnknownSupplier(new.supplierCode)
-        return products.save(
+        val saved = products.save(
             Product(
                 sku = new.sku,
                 name = new.name,
@@ -43,10 +51,27 @@ class ProductService(
                 createdAt = clock.instant(),
             ),
         )
+        events.publishEvent(ProductCreated(Uuid.random(), saved.sku, now(), saved.snapshot()))
+        return saved
+    }
+
+    // Each write publishes an event inside its transaction; ProductEventRelay delivers it after commit.
+    @Transactional
+    fun reprice(sku: String, pricePaise: Long): Product = bySku(sku).apply {
+        this.pricePaise = pricePaise
+        events.publishEvent(ProductUpdated(Uuid.random(), sku, now(), snapshot()))
     }
 
     @Transactional
-    fun reprice(sku: String, pricePaise: Long): Product = bySku(sku).apply { this.pricePaise = pricePaise }
+    fun delete(sku: String) {
+        products.delete(bySku(sku))
+        events.publishEvent(ProductDeleted(Uuid.random(), sku, now()))
+    }
+
+    private fun now() = clock.instant().toKotlinInstant()
+
+    private fun Product.snapshot() =
+        ProductSnapshot(sku, name, description, category.name, pricePaise, supplier.name, dietaryTags.sorted())
 
     // Applies a supplier's "SKU,pricePaise" price list. If reading fails halfway with an IOException, a
     // checked exception, the lines already applied must be undone: RollbackOn.ALL_EXCEPTIONS makes it so.

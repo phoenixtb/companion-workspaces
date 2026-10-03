@@ -37,5 +37,6 @@ include(":language:part10-suspend-your-disbelief")
 include(":language:part11-flowing-data")
 include(":language:part12-bilingual")
 
-// Act III: the services.
+// Act III: the services, and the event contract they share.
+include(":shared:product-events")
 include(":services:product-catalog-service")

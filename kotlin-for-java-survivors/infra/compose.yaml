@@ -12,5 +12,12 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql
 
+  kafka:
+    # One node in KRaft mode (broker and controller in one process, no ZooKeeper). The image's
+    # defaults already advertise PLAINTEXT://localhost:9092 for clients on the host.
+    image: apache/kafka:4.2.2
+    ports:
+      - "9092:9092"
+
 volumes:
   postgres-data:
