@@ -17,6 +17,8 @@ jspecify = "1.0.0"
 # Act III
 spring-boot = "4.1.1"
 spring-dependency-management = "1.1.7"
+spring-ai = "2.0.1"
+qdrant-client = "1.19.0" # matches the 1.19 server; Spring AI 2.0.1 brings 1.18.0, LangChain4j 1.21 brings 1.17.0
 kafka = "4.2.1" # the version Boot 4.1.1 manages, so the shared module matches both services
 
 [libraries]

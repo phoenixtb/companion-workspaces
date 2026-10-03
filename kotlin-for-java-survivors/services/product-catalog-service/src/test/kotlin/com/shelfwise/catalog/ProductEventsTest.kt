@@ -21,6 +21,7 @@ import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 @SpringBootTest
 @Import(TestcontainersConfiguration::class)
@@ -64,5 +65,13 @@ class ProductEventsTest(
         assertIs<ProductCreated>(events[0].second)
         assertEquals(11_000, assertIs<ProductUpdated>(events[1].second).product.pricePaise)
         assertIs<ProductDeleted>(events[2].second)
+    }
+
+    @Test
+    fun `republish emits the current state of every product`() {
+        val count = catalog.republishAll()
+
+        assertTrue(count >= 16) // the seed data, plus whatever other tests created
+        assertEquals("Durum Wheat Penne 500 g", assertIs<ProductUpdated>(eventsFor("SHW-1001", expected = 1).last().second).product.name)
     }
 }

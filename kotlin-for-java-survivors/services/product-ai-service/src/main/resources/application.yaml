@@ -1,0 +1,46 @@
+server:
+  port: 8081
+spring:
+  application:
+    name: product-ai-service
+  threads:
+    virtual:
+      enabled: true
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      init:
+        pull-model-strategy: when_missing # download the models on first start
+      chat:
+        model: qwen3:4b-instruct # the non-thinking variant: plain qwen3:4b is now the "Thinking" model
+        temperature: 0.2
+      embedding:
+        model: nomic-embed-text # 768 dimensions; both adapters must use the same model
+    vectorstore:
+      qdrant:
+        host: localhost
+        port: 6334 # gRPC, not the 6333 REST port
+        collection-name: products_springai # one collection per adapter (Part 16)
+        initialize-schema: true # create the collection, sized to the embedding model, if missing
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      auto-offset-reset: earliest # a new consumer group replays the topic and rebuilds the index
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: com.shelfwise.events.ProductEventDeserializer
+  http:
+    serviceclient:
+      catalog:
+        base-url: http://localhost:8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics # Spring AI records model calls, token usage and vector searches as Micrometer metrics
+
+assistant:
+  consumer-group: product-ai-springai # one group per adapter: switching profile rebuilds that index
+  rag:
+    similarity-threshold: 0.6 # nomic-embed-text: related products score about 0.65–0.8

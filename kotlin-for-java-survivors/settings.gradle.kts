@@ -40,3 +40,4 @@ include(":language:part12-bilingual")
 // Act III: the services, and the event contract they share.
 include(":shared:product-events")
 include(":services:product-catalog-service")
+include(":services:product-ai-service")

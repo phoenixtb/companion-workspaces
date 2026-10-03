@@ -34,6 +34,10 @@ class ProductController(private val catalog: ProductService) {
         return ResponseEntity.created(URI.create("/api/products/${product.sku}")).body(product.toResponse())
     }
 
+    // Backfill for consumers (Part 15): one product-updated event per product. An admin endpoint.
+    @PostMapping("/republish")
+    fun republish() = mapOf("republished" to catalog.republishAll())
+
     @DeleteMapping("/{sku}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun delete(@PathVariable sku: String) = catalog.delete(sku)

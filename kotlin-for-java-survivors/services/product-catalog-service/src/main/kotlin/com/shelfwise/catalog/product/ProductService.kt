@@ -68,6 +68,13 @@ class ProductService(
         events.publishEvent(ProductDeleted(Uuid.random(), sku, now()))
     }
 
+    // Rows that never went through create(), such as Flyway's seed data, have no events. A republish
+    // emits every product's current state, which idempotent consumers absorb safely.
+    @Transactional
+    fun republishAll(): Int = products.findAll().onEach { product ->
+        events.publishEvent(ProductUpdated(Uuid.random(), product.sku, now(), product.snapshot()))
+    }.size
+
     private fun now() = clock.instant().toKotlinInstant()
 
     private fun Product.snapshot() =
