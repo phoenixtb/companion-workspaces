@@ -1,0 +1,25 @@
+# The LangChain4j adapter. Spring AI's models and vector store are switched off; LangChain4j's Boot 4
+# starter creates its Ollama models because their base URLs are set here.
+spring:
+  ai:
+    model:
+      chat: none
+      embedding: none
+    vectorstore:
+      type: none
+
+langchain4j:
+  ollama:
+    chat-model:
+      base-url: http://localhost:11434
+      model-name: qwen3:4b-instruct # the same models as the Spring AI adapter
+      temperature: 0.2
+      timeout: 120s
+    embedding-model:
+      base-url: http://localhost:11434
+      model-name: nomic-embed-text # must match: vectors from different models aren't comparable
+
+assistant:
+  consumer-group: product-ai-lc4j # a new group replays the topic and builds this adapter's index
+  lc4j:
+    collection: products_lc4j # LangChain4j stores text under "text_segment", Spring AI under "doc_content"

@@ -18,8 +18,8 @@ spring:
         model: nomic-embed-text # 768 dimensions; both adapters must use the same model
     vectorstore:
       qdrant:
-        host: localhost
-        port: 6334 # gRPC, not the 6333 REST port
+        host: ${assistant.qdrant.host}
+        port: ${assistant.qdrant.port}
         collection-name: products_springai # one collection per adapter (Part 16)
         initialize-schema: true # create the collection, sized to the embedding model, if missing
   kafka:
@@ -41,6 +41,9 @@ management:
         include: health,metrics # Spring AI records model calls, token usage and vector searches as Micrometer metrics
 
 assistant:
+  qdrant:
+    host: localhost
+    port: 6334 # gRPC, not the 6333 REST port; shared by both adapters
   consumer-group: product-ai-springai # one group per adapter: switching profile rebuilds that index
   rag:
     similarity-threshold: 0.6 # nomic-embed-text: related products score about 0.65–0.8

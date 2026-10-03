@@ -39,13 +39,18 @@ class BagOfWordsEmbeddingModel : EmbeddingModel {
     }
 }
 
+// What both adapters' fake chat models offer the shared tests: the text of the last prompt.
+interface PromptRecorder {
+    val lastPrompt: String?
+}
+
 // Records the prompt it was given and answers with a fixed sentence: enough to check what the
 // RAG advisor put in front of the model.
-class RecordingChatModel : ChatModel {
-    var lastPrompt: Prompt? = null
+class RecordingChatModel : ChatModel, PromptRecorder {
+    override var lastPrompt: String? = null
 
     override fun call(prompt: Prompt): ChatResponse {
-        lastPrompt = prompt
+        lastPrompt = prompt.contents
         return ChatResponse(listOf(Generation(AssistantMessage("(fake model answer)"))))
     }
 }

@@ -16,16 +16,17 @@ import org.apache.kafka.common.serialization.StringSerializer
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.kafka.autoconfigure.KafkaConnectionDetails
+import org.springframework.test.context.ActiveProfiles
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
-@AssistantSpringTest
-class AssistantTest(
-    @Autowired private val assistant: ProductAssistant,
-    @Autowired private val chatModel: RecordingChatModel,
-    @Autowired private val kafka: KafkaConnectionDetails,
+// One suite, two adapters: each subclass runs every test against a different ProductAssistant.
+abstract class AssistantContract(
+    private val assistant: ProductAssistant,
+    private val chatModel: PromptRecorder,
+    private val kafka: KafkaConnectionDetails,
 ) {
     private fun publish(vararg events: ProductEvent) =
         KafkaProducer(mapOf(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG to kafka.producer.bootstrapServers), StringSerializer(), ProductEventSerializer())
@@ -85,7 +86,7 @@ class AssistantTest(
         val answer = assistant.ask("Can I return a mixer grinder that stopped working?")
 
         assertTrue("returns-small-appliances" in answer.sources)
-        val prompt = chatModel.lastPrompt!!.contents
+        val prompt = chatModel.lastPrompt!!
         assertTrue("There is no \"no questions asked\" return policy." in prompt) // the policy text reached the model
     }
 
@@ -94,8 +95,23 @@ class AssistantTest(
         val answer = assistant.ask("Who won the cricket match yesterday?")
 
         assertEquals(emptyList(), answer.sources)
-        val prompt = chatModel.lastPrompt!!.contents
+        val prompt = chatModel.lastPrompt!!
         assertTrue("No store documents match this query." in prompt)
         assertTrue("Query: Who won the cricket match yesterday?" in prompt) // the question survives, for tools
     }
 }
+
+@AssistantSpringTest
+class SpringAiAssistantTest(
+    @Autowired assistant: ProductAssistant,
+    @Autowired chatModel: RecordingChatModel,
+    @Autowired kafka: KafkaConnectionDetails,
+) : AssistantContract(assistant, chatModel, kafka)
+
+@AssistantSpringTest
+@ActiveProfiles("lc4j")
+class Lc4jAssistantTest(
+    @Autowired assistant: ProductAssistant,
+    @Autowired chatModel: Lc4jRecordingChatModel,
+    @Autowired kafka: KafkaConnectionDetails,
+) : AssistantContract(assistant, chatModel, kafka)

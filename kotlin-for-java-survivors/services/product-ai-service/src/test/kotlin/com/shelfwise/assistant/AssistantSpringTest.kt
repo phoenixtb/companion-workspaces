@@ -14,5 +14,5 @@ import org.springframework.context.annotation.Import
         "assistant.rag.similarity-threshold=0.25", // bag-of-words similarities run lower than a real model's
     ],
 )
-@Import(TestcontainersConfiguration::class, FakeModels::class)
+@Import(TestcontainersConfiguration::class, FakeModels::class, Lc4jFakeModels::class)
 annotation class AssistantSpringTest

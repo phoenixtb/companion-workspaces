@@ -3,6 +3,7 @@ package com.shelfwise.assistant
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.context.annotation.Bean
+import org.springframework.test.context.DynamicPropertyRegistrar
 import org.testcontainers.kafka.KafkaContainer
 import org.testcontainers.qdrant.QdrantContainer
 
@@ -17,4 +18,11 @@ class TestcontainersConfiguration {
     @Bean
     @ServiceConnection
     fun qdrant() = QdrantContainer("qdrant/qdrant:v1.19.1")
+
+    // The LangChain4j adapter reads assistant.qdrant.* (Spring AI's service connection doesn't reach it).
+    @Bean
+    fun qdrantLocation(qdrant: QdrantContainer) = DynamicPropertyRegistrar { registry ->
+        registry.add("assistant.qdrant.host") { qdrant.host }
+        registry.add("assistant.qdrant.port") { qdrant.grpcPort }
+    }
 }

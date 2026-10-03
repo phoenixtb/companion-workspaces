@@ -7,6 +7,7 @@ val libs = the<VersionCatalogsExtension>().named("libs")
 dependencyManagement {
     imports {
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.findVersion("spring-ai").get().requiredVersion}")
+        mavenBom("dev.langchain4j:langchain4j-bom:${libs.findVersion("langchain4j").get().requiredVersion}")
     }
     dependencies {
         // One Qdrant client for both AI libraries, matching the server's minor version.
@@ -25,7 +26,12 @@ dependencies {
     implementation("org.springframework.ai:spring-ai-starter-model-ollama")
     implementation("org.springframework.ai:spring-ai-starter-vector-store-qdrant")
     implementation("org.springframework.ai:spring-ai-rag")
+    // LangChain4j (Part 16): AI services and RAG, Ollama models from the Boot 4 starter, and the Qdrant store.
+    implementation("dev.langchain4j:langchain4j")
+    implementation("dev.langchain4j:langchain4j-ollama-spring-boot4-starter")
+    implementation("dev.langchain4j:langchain4j-qdrant")
 
+    testImplementation("dev.langchain4j:langchain4j-kotlin") // only to show how its extensions meet the Java API
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-kafka-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
