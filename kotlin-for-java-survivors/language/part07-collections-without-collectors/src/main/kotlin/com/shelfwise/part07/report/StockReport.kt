@@ -61,7 +61,7 @@ fun main() {
     // -> StoreReport(store=MUM-002, totalUnits=62, lowStock=[SHW-3002])
     // -> StoreReport(store=PUN-014, totalUnits=39, lowStock=[SHW-1001, SHW-3001])
 
-    // Publish two stores per message (Part 14 sends these to Kafka).
+    // Two stores per message: batches like these suit a Kafka producer.
     println(reports.chunked(2).map { batch -> batch.map { it.store } }) // -> [[BLR-007, MUM-002], [PUN-014]]
 
     try {

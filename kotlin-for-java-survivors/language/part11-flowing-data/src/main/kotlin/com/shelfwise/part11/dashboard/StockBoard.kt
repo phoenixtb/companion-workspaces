@@ -32,7 +32,7 @@ class StockBoard(private val reorderAt: Int = 10) {
         .distinctUntilChanged()
 }
 
-// Step 4: the same stream for WebFlux, which Part 14 serves to the dashboard.
+// Step 4: the same stream as a Flux, for Reactor-based callers.
 fun StockBoard.lowStockFeed(): Flux<Set<String>> = lowStock.asFlux()
 
 // Step 5: drive it under virtual time.
