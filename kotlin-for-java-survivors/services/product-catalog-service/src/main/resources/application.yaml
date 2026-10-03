@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: product-catalog-service
+  threads:
+    virtual:
+      enabled: true # Tomcat request threads (and @Async, schedulers) become virtual threads
+  datasource:
+    url: jdbc:postgresql://localhost:5432/catalog
+    username: shelfwise
+    password: shelfwise
+  jpa:
+    open-in-view: false # no lazy loading during view rendering: fetch what the response needs
+    hibernate:
+      ddl-auto: validate # Flyway owns the schema; Hibernate only checks it

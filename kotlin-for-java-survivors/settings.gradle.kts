@@ -36,3 +36,6 @@ include(":language:part09-errors-without-checked-exceptions")
 include(":language:part10-suspend-your-disbelief")
 include(":language:part11-flowing-data")
 include(":language:part12-bilingual")
+
+// Act III: the services.
+include(":services:product-catalog-service")

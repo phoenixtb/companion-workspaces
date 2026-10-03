@@ -12,4 +12,7 @@ dependencies {
     // Lint plugins, for the same reason: each would otherwise bring its own copy of KGP.
     implementation(libs.ktlint.gradle.plugin)
     implementation(libs.detekt.gradle.plugin)
+    // Act III: Spring Boot services.
+    implementation(libs.spring.boot.gradle.plugin)
+    implementation(libs.spring.dependency.management.plugin)
 }
