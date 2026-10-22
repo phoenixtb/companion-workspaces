@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: tracking-projection
+  main:
+    web-application-type: none
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tracking
+    username: dispatchly
+    password: dispatchly
+  sql:
+    init:
+      mode: always            # create tracking_view from schema.sql on startup
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      auto-offset-reset: earliest   # a new consumer group starts at the beginning of the topic
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:                       # used only by the dead-letter recoverer
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer

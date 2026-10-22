@@ -5,6 +5,10 @@ postgresql = "42.7.14"
 junit = "6.0.3"      # the JUnit Jupiter version Spring Boot 4.1.2 manages, so every module agrees
 testcontainers = "2.0.5"
 assertj = "3.27.7"
+# Parts 2 and 3
+spring-boot = "4.1.2"
+spring-dependency-management = "1.1.7"
+debezium = "3.7.0.Final"
 
 [libraries]
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
@@ -15,3 +19,8 @@ testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version
 testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
 testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+debezium-testing-testcontainers = { module = "io.debezium:debezium-testing-testcontainers", version.ref = "debezium" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }

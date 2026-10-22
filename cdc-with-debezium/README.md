@@ -36,6 +36,7 @@ All library versions are pinned once in [`gradle/libs.versions.toml`](gradle/lib
 | Part | Post | Code |
 | --- | --- | --- |
 | 1 | [The Dual-Write Trap](https://pub.titasbiswas.com/series/cdc-with-debezium/cdc-with-debezium-part-1-the-dual-write-trap/) | `part1/` (SQL steps, preview script), `naive-poller/` (tag `cdc-with-debezium/part-1`) |
+| 2 | [Plugging Into the WAL](https://pub.titasbiswas.com/series/cdc-with-debezium/cdc-with-debezium-part-2-plugging-into-the-wal/) | `connectors/`, `part2/`, `shipment-service/`, `tracking-projection/` (tag `cdc-with-debezium/part-2`) |
 
 ### Part 1
 
@@ -52,3 +53,19 @@ docker compose up -d --wait && ./part1/preview-event.sh   # one real Debezium ch
 Run the SQL steps in order: step 1 creates the `part1_demo` slot that steps 2 and 3 reuse, and step 3 drops it.
 
 Asserted by tests: the poller-versus-slot results (`PollerVsLogTest`, against a Testcontainers `postgres:18.6`). The psql transcripts in the post are captured from real runs; LSNs and transaction ids match on a fresh volume, timestamps don't.
+
+### Part 2
+
+```bash
+docker compose up -d --wait
+docker compose exec -T postgres psql -U dispatchly -d dispatchly < part2/01-debezium-user.sql
+curl -s -X PUT -H 'Content-Type: application/json' \
+  localhost:8083/connectors/shipments-cdc/config -d @connectors/shipments-cdc.json
+./gradlew :shipment-service:bootRun        # port 8080
+./gradlew :tracking-projection:bootRun     # writes tracking_view in the tracking database
+./gradlew :tracking-projection:test        # the whole pipeline in Testcontainers
+```
+
+Helpers: `part2/diagnose.sql` (first queries when nothing arrives), `part2/events-for-key.sh <id>` (every event for one shipment), `part2/remove-connector.sh <name> <slot> [topics…]` (removes a connector with its offsets, slot and topics).
+
+Asserted by tests: `ShipmentPipelineTest` registers `connectors/shipments-cdc.json` against PostgreSQL, Kafka and Debezium containers and checks that snapshot rows, a status change and a delete reach `tracking_view`.

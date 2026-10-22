@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: shipment-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/dispatchly
+    username: dispatchly
+    password: dispatchly
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer

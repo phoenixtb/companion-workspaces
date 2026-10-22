@@ -14,4 +14,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "cdc-with-debezium"
 
-include("naive-poller")   // Part 1
+include("naive-poller")          // Part 1
+include("shipment-service")      // Parts 2 and 3
+include("tracking-projection")   // Parts 2 and 3
