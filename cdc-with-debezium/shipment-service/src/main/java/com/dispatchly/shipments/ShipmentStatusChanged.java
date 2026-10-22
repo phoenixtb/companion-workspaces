@@ -2,6 +2,6 @@ package com.dispatchly.shipments;
 
 import java.time.Instant;
 
-// The event the notification service still consumes from the legacy shipment-events topic.
+// The published contract for notifications: written to the outbox, routed to dispatchly.shipment.events.
 public record ShipmentStatusChanged(String trackingCode, ShipmentStatus status, String hubId, Instant occurredAt) {
 }

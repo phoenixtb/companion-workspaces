@@ -19,7 +19,7 @@ services:
       - -c
       - max_wal_senders=10            # one walsender process per streaming connection
       - -c
-      - max_slot_wal_keep_size=2GB    # safety valve: a slot may pin at most this much WAL (Part 3)
+      - max_slot_wal_keep_size=${PG_MAX_SLOT_WAL_KEEP_SIZE:-2GB}   # safety valve: a slot may pin at most this much WAL (Part 3)
     ports:
       - "5432:5432"
     volumes:
@@ -69,7 +69,7 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-    environment:
+    environment: &connect-environment
       BOOTSTRAP_SERVERS: kafka:29092
       GROUP_ID: dispatchly-connect          # workers with the same group.id form one Connect cluster
       CONFIG_STORAGE_TOPIC: connect-configs
@@ -80,6 +80,16 @@ services:
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      ENABLE_APICURIO_CONVERTERS: "true"    # the image ships Apicurio's Avro converters, off by default (Part 3)
+      # Exactly-once delivery for source connectors (KIP-618): every worker in the cluster needs it.
+      CONNECT_EXACTLY_ONCE_SOURCE_SUPPORT: enabled
+      # Secrets from the environment instead of connector JSON: "${env:DEBEZIUM_DB_PASSWORD}".
+      CONNECT_CONFIG_PROVIDERS: env
+      CONNECT_CONFIG_PROVIDERS_ENV_CLASS: org.apache.kafka.common.config.provider.EnvVarConfigProvider
+      DEBEZIUM_DB_PASSWORD: debezium      # in production: a secret mounted by the platform
+      # JMX for Debezium's metrics, readable from inside the container.
+      JMXHOST: localhost
+      JMXPORT: "1976"
     ports:
       - "8083:8083"
     healthcheck:
@@ -87,6 +97,29 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
+
+  connect-2:
+    # A second worker in the same Connect cluster (same GROUP_ID). Started only for Part 3's failover drill:
+    #   docker compose --profile ha up -d --wait connect-2
+    image: quay.io/debezium/connect:3.7.0.Final
+    profiles: ["ha"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment: *connect-environment
+    ports:
+      - "8084:8083"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs localhost:8083/connectors > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  apicurio:
+    # Schema registry for the Avro drill in Part 3. In-memory storage: lab only.
+    image: apicurio/apicurio-registry:3.3.3
+    ports:
+      - "8081:8080"
 
 volumes:
   pgdata:

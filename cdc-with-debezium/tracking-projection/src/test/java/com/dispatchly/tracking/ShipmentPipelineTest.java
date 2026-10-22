@@ -58,6 +58,16 @@ class ShipmentPipelineTest {
             .withEnv("BOOTSTRAP_SERVERS", "kafka:19092")
             .dependsOn(kafka, postgres);
 
+    // The worker settings the connector relies on since Part 3: exactly-once support and secrets
+    // from the environment, as in compose.yaml.
+    static {
+        connect.withEnv("CONNECT_EXACTLY_ONCE_SOURCE_SUPPORT", "enabled")
+                .withEnv("CONNECT_CONFIG_PROVIDERS", "env")
+                .withEnv("CONNECT_CONFIG_PROVIDERS_ENV_CLASS",
+                        "org.apache.kafka.common.config.provider.EnvVarConfigProvider")
+                .withEnv("DEBEZIUM_DB_PASSWORD", "debezium");
+    }
+
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", () -> postgres.getJdbcUrl().replace("/dispatchly", "/tracking"));
@@ -67,7 +77,10 @@ class ShipmentPipelineTest {
     @BeforeAll
     static void registerConnector() throws Exception {
         try (var db = DriverManager.getConnection(postgres.getJdbcUrl(), "dispatchly", "dispatchly")) {
-            db.createStatement().execute(Files.readString(Path.of("../part2/01-debezium-user.sql")));
+            for (var script : new String[] {"../part2/01-debezium-user.sql", "../part3/02-hubs-and-signals.sql",
+                    "../part3/04-add-column.sql"}) {
+                db.createStatement().execute(Files.readString(Path.of(script)));
+            }
         }
         Map<String, Object> config = JsonMapper.shared()
                 .readValue(Path.of("../connectors/shipments-cdc.json").toFile(), new TypeReference<>() {});

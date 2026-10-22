@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: notification-service
+  main:
+    web-application-type: none
+  datasource:
+    url: jdbc:postgresql://localhost:5432/notifications
+    username: dispatchly
+    password: dispatchly
+  sql:
+    init:
+      mode: always
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      auto-offset-reset: earliest
+      isolation-level: read-committed   # skip records from aborted Connect transactions (Part 3)
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer

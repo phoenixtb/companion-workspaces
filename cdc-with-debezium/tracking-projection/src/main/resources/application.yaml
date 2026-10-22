@@ -14,6 +14,7 @@ spring:
     bootstrap-servers: localhost:9092
     consumer:
       auto-offset-reset: earliest   # a new consumer group starts at the beginning of the topic
+      isolation-level: read-committed   # skip records from aborted Connect transactions (Part 3)
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
     producer:                       # used only by the dead-letter recoverer
