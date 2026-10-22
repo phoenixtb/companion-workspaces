@@ -1,0 +1,17 @@
+# Every version in this series, in one place. Re-verified 2026-10-22 against Maven Central.
+
+[versions]
+postgresql = "42.7.14"
+junit = "6.0.3"      # the JUnit Jupiter version Spring Boot 4.1.2 manages, so every module agrees
+testcontainers = "2.0.5"
+assertj = "3.27.7"
+
+[libraries]
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }

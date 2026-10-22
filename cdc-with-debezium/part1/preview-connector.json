@@ -1,0 +1,18 @@
+{
+  "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+  "plugin.name": "pgoutput",
+  "database.hostname": "postgres",
+  "database.port": "5432",
+  "database.user": "dispatchly",
+  "database.password": "dispatchly",
+  "database.dbname": "dispatchly",
+  "topic.prefix": "preview",
+  "table.include.list": "public.shipments",
+  "slot.name": "part1_preview",
+  "publication.name": "part1_preview",
+  "publication.autocreate.mode": "filtered",
+  "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+  "key.converter.schemas.enable": "false",
+  "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+  "value.converter.schemas.enable": "false"
+}
