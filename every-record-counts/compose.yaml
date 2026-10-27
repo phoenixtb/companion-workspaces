@@ -27,8 +27,8 @@ services:
       - seaweedfs-data:/data
       - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
     environment:
-      GOMEMLIMIT: 768MiB   # Go's soft heap limit: collect harder well before the container limit
-    mem_limit: 1g
+      GOMEMLIMIT: 1GiB   # Go's soft heap limit: collect harder well before the container limit
+    mem_limit: 1536m   # Part 3 uploads a 1.7 GB object; 1 GB left no headroom
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8888/"]
       interval: 5s

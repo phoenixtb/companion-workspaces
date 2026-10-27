@@ -26,6 +26,8 @@ in `pyproject.toml` and `uv.lock`. Re-verified at the start of every season.
 | Polars | 2.1.0 | Row order after `group_by`/`unique`/joins isn't guaranteed without `maintain_order=True`. |
 | PyIceberg | 0.12.0 | |
 | PyArrow | 26.0.0 | |
+| DuckDB `avro` extension | ships with DuckDB 2.0.0 | Reads with `read_avro`; also **writes** with `COPY … (FORMAT avro, CODEC 'deflate')` (null, deflate, snappy, zstandard worked in the lab). Writing is documented in the extension's GitHub README, not on the 2.0 docs page (Part 3). |
+| botocore | 1.43.x | Comes with `s3fs` (via aiobotocore); Part 3 uses it directly for S3 conditional writes. SeaweedFS 4.51 honours `If-None-Match: *` and `If-Match` on PutObject (412 on failure). |
 | ruff | 0.17.3 | |
 | pytest | 9.x | |
 | Docker Desktop | 29.8 | Lab measured with a 9.8 GB VM; see the README's memory matrix. |

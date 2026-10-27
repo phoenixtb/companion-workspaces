@@ -33,9 +33,11 @@ for f in a.files:
         print(f"{type(e).__name__}: {e}")
         continue
     for stmt in statements:
+        # A statement's text can end with ';' and the comments that introduce the next one; drop both.
+        query = "\n".join(line for line in stmt.query.splitlines() if not line.lstrip().startswith("--"))
         started = time.monotonic()
         try:
-            rel = con.sql(stmt.query)
+            rel = con.sql(query.strip().rstrip(";"))
         except duckdb.Error as e:
             print(f"{type(e).__name__}: {e}")
             continue
