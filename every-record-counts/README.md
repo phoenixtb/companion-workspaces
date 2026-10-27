@@ -57,6 +57,7 @@ Measured on a MacBook Pro M3 Pro, Docker Desktop VM with 9.8 GB:
 | --- | --- | --- | --- |
 | 0 | core | 0.86 GB | DuckDB runs on the host |
 | 1 | core + Trino (`make up-trino`) | 2.4 GB | SeaweedFS 0.69, Polaris 0.27, PostgreSQL 0.35, Trino 1.05; Spark not needed |
+| 2 | none (host only) | 0.62 GiB RSS (DuckDB) | no containers; the full backfill (128 runs) peaked at 619 MiB resident on the host |
 
 ## The data
 
@@ -86,6 +87,7 @@ data/raw/
 | --- | --- | --- |
 | 0 | The Field Guide | the stack, the generator, `sql/incident/` and `sql/part00/`: the three headline numbers, two answers each |
 | 1 | Three Houses for Data | `sql/part01/`, `scripts/part01_load.py`, `part01_compare.py`, `part01_update.sh`: one table in PostgreSQL, a Parquet folder and an Iceberg table; the same questions and one update in each |
+| 2 | Think in Pipelines | `sql/part02/`, `scripts/part02_pipeline.py`, `part02_profile.py`: a daily sales job that appends (and doubles on re-run) vs one that rebuilds the business dates each upload touched, raw → silver → gold in DuckDB; `tests/test_part02.py` proves re-runs, reverse backfills and crashes leave the tables identical |
 
 ## Layout
 
