@@ -59,3 +59,31 @@ def bucket() -> duckdb.DuckDBPyConnection:
     con.execute("SET VARIABLE raw_root = 's3://larkspur-raw/raw'")
     con.execute((ROOT / "sql/raw/views.sql").read_text())
     return con
+
+
+def trino_up() -> bool:
+    import socket
+
+    with socket.socket() as s:
+        s.settimeout(0.5)
+        return s.connect_ex(("localhost", 8080)) == 0
+
+
+needs_batch = pytest.mark.skipif(not (stack_up() and trino_up()), reason="needs `make up-trino` and `make upload`")
+
+
+def trino_rows(sql: str) -> list:
+    import urllib.request
+
+    req = urllib.request.Request(
+        "http://localhost:8080/v1/statement", data=sql.encode(), headers={"X-Trino-User": "tests"}
+    )
+    page = json.load(urllib.request.urlopen(req))
+    rows = []
+    while True:
+        rows += page.get("data", [])
+        if "error" in page:
+            raise RuntimeError(page["error"]["message"])
+        if "nextUri" not in page:
+            return rows
+        page = json.load(urllib.request.urlopen(page["nextUri"]))

@@ -27,7 +27,7 @@ make upload       # copy it into s3://larkspur-raw/raw/
 make test         # tests that need the stack skip themselves when it's down
 ```
 
-Add Trino and Spark with `make up-batch`. Stop everything with `make down`; delete all data with
+Add Trino with `make up-trino`, or Trino and Spark with `make up-batch`. Stop everything with `make down`; delete all data with
 `make reset`. `make help` lists every target.
 
 | Service | URL | Credentials (lab only) |
@@ -56,6 +56,7 @@ Measured on a MacBook Pro M3 Pro, Docker Desktop VM with 9.8 GB:
 | Part | Profiles | Peak memory (containers) | Notes |
 | --- | --- | --- | --- |
 | 0 | core | 0.86 GB | DuckDB runs on the host |
+| 1 | core + Trino (`make up-trino`) | 2.4 GB | SeaweedFS 0.69, Polaris 0.27, PostgreSQL 0.35, Trino 1.05; Spark not needed |
 
 ## The data
 
@@ -84,6 +85,7 @@ data/raw/
 | Part | Title | What's here |
 | --- | --- | --- |
 | 0 | The Field Guide | the stack, the generator, `sql/incident/` and `sql/part00/`: the three headline numbers, two answers each |
+| 1 | Three Houses for Data | `sql/part01/`, `scripts/part01_load.py`, `part01_compare.py`, `part01_update.sh`: one table in PostgreSQL, a Parquet folder and an Iceberg table; the same questions and one update in each |
 
 ## Layout
 

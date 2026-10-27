@@ -27,9 +27,18 @@ con.execute((ROOT / "sql/raw/views.sql").read_text())
 
 for f in a.files:
     print(f"-- {f}")
-    for stmt in con.extract_statements(f.read_text()):
+    try:
+        statements = con.extract_statements(f.read_text())
+    except duckdb.Error as e:
+        print(f"{type(e).__name__}: {e}")
+        continue
+    for stmt in statements:
         started = time.monotonic()
-        rel = con.sql(stmt.query)
+        try:
+            rel = con.sql(stmt.query)
+        except duckdb.Error as e:
+            print(f"{type(e).__name__}: {e}")
+            continue
         if rel is not None:
             rel.show(max_width=140)
             print(f"({time.monotonic() - started:.1f}s)")
