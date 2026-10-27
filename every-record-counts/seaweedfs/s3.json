@@ -1,0 +1,9 @@
+{
+  "identities": [
+    {
+      "name": "larkspur",
+      "credentials": [{ "accessKey": "larkspur", "secretKey": "larkspur-lab-secret" }],
+      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+    }
+  ]
+}

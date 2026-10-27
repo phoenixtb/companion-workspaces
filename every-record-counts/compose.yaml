@@ -1,0 +1,143 @@
+# Larkspur data platform lab. Services are grouped by profile; start only what a part needs:
+#   docker compose --profile core up -d --wait                    # storage, catalog, OLTP
+#   docker compose --profile core --profile batch up -d --wait    # + Trino and Spark
+# Every service has a memory limit; the README has measured peaks per part.
+
+name: every-record-counts
+
+x-lab-env: &lab-env
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+  S3_SECRET_KEY: ${S3_SECRET_KEY}
+  POLARIS_CLIENT_ID: ${POLARIS_CLIENT_ID}
+  POLARIS_CLIENT_SECRET: ${POLARIS_CLIENT_SECRET}
+
+services:
+  # ---------- core: object storage, catalog, OLTP database ----------
+  seaweedfs:
+    image: ${SEAWEEDFS_IMAGE}
+    profiles: [core]
+    command: >
+      mini -dir=/data -bucket=larkspur-raw,larkspur-lake
+      -s3.config=/etc/seaweedfs/s3.json -s3.port.iceberg=0 -s3.port.lance=0
+      -master.telemetry=false
+    ports:
+      - "8333:8333"   # S3 API
+      - "8888:8888"   # filer UI (browse buckets)
+    volumes:
+      - seaweedfs-data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8888/"]
+      interval: 5s
+      retries: 30
+
+  postgres:
+    image: ${POSTGRES_IMAGE}
+    profiles: [core]
+    environment:
+      POSTGRES_USER: larkspur
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: larkspur
+      POLARIS_DB_PASSWORD: ${POLARIS_DB_PASSWORD}
+    command: >
+      postgres -c shared_buffers=256MB -c work_mem=32MB -c max_parallel_workers_per_gather=2
+      -c track_io_timing=on
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    mem_limit: 1g
+    shm_size: 256m
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "larkspur", "-d", "larkspur"]
+      interval: 3s
+      retries: 30
+
+  polaris-bootstrap:
+    image: ${POLARIS_ADMIN_IMAGE}
+    profiles: [core]
+    command: bootstrap --realm=POLARIS --credential=POLARIS,${POLARIS_CLIENT_ID},${POLARIS_CLIENT_SECRET}
+    environment: &polaris-db
+      POLARIS_PERSISTENCE_TYPE: relational-jdbc
+      POLARIS_PERSISTENCE_RELATIONAL_JDBC_DATABASE_TYPE: postgresql
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/polaris
+      QUARKUS_DATASOURCE_USERNAME: polaris
+      QUARKUS_DATASOURCE_PASSWORD: ${POLARIS_DB_PASSWORD}
+    mem_limit: 512m
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  polaris:
+    image: ${POLARIS_IMAGE}
+    profiles: [core]
+    environment:
+      <<: *polaris-db
+      POLARIS_REALM_CONTEXT_REALMS: POLARIS
+      # Polaris writes table metadata files itself, so it needs storage credentials too.
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      AWS_REGION: us-east-1
+    ports:
+      - "8181:8181"   # Iceberg REST catalog + management API
+      - "8182:8182"   # health and metrics
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8182/q/health"]
+      interval: 5s
+      retries: 30
+    depends_on:
+      polaris-bootstrap: { condition: service_completed_successfully }
+      seaweedfs: { condition: service_healthy }
+
+  polaris-setup:
+    image: ${CURL_IMAGE}
+    profiles: [core]
+    entrypoint: ["/bin/sh", "/create-catalog.sh"]
+    environment: *lab-env
+    volumes:
+      - ./polaris/create-catalog.sh:/create-catalog.sh:ro
+    depends_on:
+      polaris: { condition: service_healthy }
+
+  # ---------- batch: distributed SQL and Spark ----------
+  trino:
+    image: ${TRINO_IMAGE}
+    profiles: [batch]
+    environment: *lab-env
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./trino/catalog/lakehouse.properties:/etc/trino/catalog/lakehouse.properties:ro
+    mem_limit: 3g   # the image sizes the JVM heap at 80% of this
+    healthcheck:
+      test: ["CMD", "/usr/lib/trino/bin/health-check"]
+      interval: 5s
+      retries: 60
+    depends_on:
+      polaris-setup: { condition: service_completed_successfully }
+
+  spark:
+    build:
+      context: ./spark
+      args:
+        SPARK_BASE_IMAGE: ${SPARK_BASE_IMAGE}
+        ICEBERG_VERSION: ${ICEBERG_VERSION}
+    image: every-record-counts/spark:4.1.3-iceberg-${ICEBERG_VERSION}
+    profiles: [batch]
+    environment:
+      <<: *lab-env
+      SPARK_CONF_DIR: /tmp/spark-conf
+    ports:
+      - "4040:4040"   # Spark UI while a job runs
+    volumes:
+      - ./spark/jobs:/opt/lakehouse/jobs:ro
+      - ./sql:/opt/lakehouse/sql:ro
+    mem_limit: 2560m
+    depends_on:
+      polaris-setup: { condition: service_completed_successfully }
+
+volumes:
+  seaweedfs-data:
+  postgres-data:

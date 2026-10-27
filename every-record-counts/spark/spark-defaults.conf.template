@@ -1,0 +1,17 @@
+spark.master                                     local[*]
+spark.driver.memory                              1536m
+spark.sql.shuffle.partitions                     8
+spark.sql.extensions                             org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+spark.sql.catalog.lakehouse                      org.apache.iceberg.spark.SparkCatalog
+spark.sql.catalog.lakehouse.type                 rest
+spark.sql.catalog.lakehouse.uri                  http://polaris:8181/api/catalog
+spark.sql.catalog.lakehouse.warehouse            larkspur
+spark.sql.catalog.lakehouse.credential           __POLARIS_CLIENT_ID__:__POLARIS_CLIENT_SECRET__
+spark.sql.catalog.lakehouse.scope                PRINCIPAL_ROLE:ALL
+spark.sql.catalog.lakehouse.io-impl              org.apache.iceberg.aws.s3.S3FileIO
+spark.sql.catalog.lakehouse.s3.endpoint          http://seaweedfs:8333
+spark.sql.catalog.lakehouse.s3.path-style-access true
+spark.sql.catalog.lakehouse.s3.access-key-id     __S3_ACCESS_KEY__
+spark.sql.catalog.lakehouse.s3.secret-access-key __S3_SECRET_KEY__
+spark.sql.catalog.lakehouse.client.region        us-east-1
+spark.sql.defaultCatalog                         lakehouse

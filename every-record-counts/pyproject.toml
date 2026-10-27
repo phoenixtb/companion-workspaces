@@ -1,0 +1,31 @@
+[project]
+name = "every-record-counts"
+version = "0.1.0"
+description = "Companion code for 'Every Record Counts: Data Engineering for Backend Engineers'"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "numpy>=2.3",
+    "polars>=2.1",
+    "pyarrow>=26.0",
+    "duckdb>=2.0",
+    "pyiceberg[pyarrow,s3fs]>=0.12",
+    "openpyxl>=3.1",
+    "psycopg[binary]>=3.3",
+]
+
+[dependency-groups]
+dev = ["pytest>=9", "ruff>=0.17"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff.lint.per-file-ignores]
+"datagen/manifest.py" = ["E501"]  # the Markdown template's table rows
