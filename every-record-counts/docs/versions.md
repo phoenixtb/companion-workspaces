@@ -27,6 +27,8 @@ in `pyproject.toml` and `uv.lock`. Re-verified at the start of every season.
 | PyIceberg | 0.12.0 | |
 | PyArrow | 26.0.0 | |
 | DuckDB `avro` extension | ships with DuckDB 2.0.0 | Reads with `read_avro`; also **writes** with `COPY … (FORMAT avro, CODEC 'deflate')` (null, deflate, snappy, zstandard worked in the lab). Writing is documented in the extension's GitHub README, not on the 2.0 docs page (Part 3). |
+| DuckDB `excel` extension | ships with DuckDB 2.0.0 | `read_xlsx` takes one file path: a glob returned rows from one workbook only, a list is a binder error. Over S3 it took about 1 s per small workbook, so Part 4 fetches workbooks first. |
+| DuckDB `ASOF JOIN` | DuckDB 2.0.0 | Used for promotion versions and price history (Part 4). |
 | botocore | 1.43.x | Comes with `s3fs` (via aiobotocore); Part 3 uses it directly for S3 conditional writes. SeaweedFS 4.51 honours `If-None-Match: *` and `If-Match` on PutObject (412 on failure). |
 | ruff | 0.17.3 | |
 | pytest | 9.x | |
