@@ -1,0 +1,30 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Raw tables in the governed `raw` namespace. orders and refunds are Part 16's CDC replicas, the supplier
+      deliveries Part 15's checked rows (in silver); the rest are landed from the raw zone by `scripts.part17_dbt land`.
+    schema: raw
+    tables:
+      - name: stores
+      - name: pos_uploads
+        description: Every POS basket event as uploaded by the tills, re-sends included; lines nested.
+      - name: orders
+        description: Current state of the order service's orders (CDC replica); cancelled orders are gone.
+      - name: order_lines
+      - name: refunds
+      - name: catalog_products
+        description: One full catalogue extract per day (snapshot_date), taken just after midnight UTC.
+      - name: promotion_versions
+        description: The promotions admin tool's history. The tool itself shows only the latest version.
+      - name: fx_rates
+      - name: stock_snapshots
+      - name: stock_adjustments
+      - name: suppliers
+      - name: po_lines
+  - name: silver
+    schema: silver
+    tables:
+      - name: supplier_deliveries
+        description: Part 15's valid supplier delivery rows (quarantined rows and repeats removed).

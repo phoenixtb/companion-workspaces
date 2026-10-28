@@ -8,3 +8,11 @@ __pycache__/
 *.duckdb.wal
 .gradle/
 build/
+.venv-dbt2/
+dbt/larkspur/target/
+dbt/larkspur/dbt_packages/
+dbt/larkspur/logs/
+dbt/*/.user.yml
+dbt/larkspur_subset/target/
+dbt/larkspur_subset/dbt_packages/
+dbt/larkspur_subset/logs/

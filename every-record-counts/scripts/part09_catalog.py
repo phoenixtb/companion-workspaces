@@ -1,6 +1,6 @@
 """Part 9: the catalog as control plane. Principals, roles and grants in Polaris; four engines on one table.
 
-uv run python -m scripts.part09_catalog reset      # drop the Part 9 tables, namespaces, principals and roles
+uv run python -m scripts.part09_catalog reset      # drop the Part 9 tables and roles (and namespaces, if empty)
 uv run python -m scripts.part09_catalog setup      # vending on; namespaces, principals, roles, grants (plain HTTP)
 uv run python -m scripts.part09_catalog load       # the pipeline principal writes a raw and a gold table
 uv run python -m scripts.part09_catalog engines    # PyIceberg, DuckDB, Trino and Spark read the same gold table
@@ -35,6 +35,7 @@ CATALOG = "larkspur"
 NAMESPACES = ["raw", "silver", "gold"]
 RAW_DAY = "2026-09-30"  # one upload day of raw POS events becomes raw.pos_events
 GOLD_SOURCE = ROOT / "data/lab/part08/daily_store_sales.parquet"  # Part 8's gold table, staged by DuckDB
+PART9_TABLES = ["raw.pos_events", "gold.daily_store_sales"]
 S3 = "http://localhost:8333"
 
 # Lab-only principals. Polaris generates random credentials; `setup` resets them to these fixed values so that
@@ -113,18 +114,20 @@ def drop_table(ns: str, name: str, tok: str) -> None:
 
 def reset() -> None:
     tok = token()
+    # Only Part 9's own tables: later parts keep theirs in the same governed namespaces (Part 16's CDC replicas,
+    # Part 17's dbt models), and they take minutes to rebuild. A namespace that still holds them isn't dropped.
+    for ident in PART9_TABLES:
+        ns, name = ident.split(".")
+        drop_table(ns, name, tok)
     for ns in NAMESPACES:
-        status, body = call("GET", f"{CAT}/namespaces/{ns}/tables", tok=tok)
-        for ident in body["identifiers"] if status == 200 else []:
-            drop_table(ns, ident["name"], tok)
-        call("DELETE", f"{CAT}/namespaces/{ns}", tok=tok)
+        call("DELETE", f"{CAT}/namespaces/{ns}", tok=tok)  # refused unless empty
     for role in PRINCIPAL_ROLES:
         call("DELETE", f"{MGMT}/principal-roles/{role}", tok=tok)
     for role in CATALOG_ROLES:
         call("DELETE", f"{MGMT}/catalogs/{CATALOG}/catalog-roles/{role}", tok=tok)
     # Principals stay: Trino holds an OAuth token for `analyst`, and a re-created principal (new id) would make
     # every Trino request fail with 401 until Trino restarts. `setup` resets their credentials anyway.
-    print("part09: no raw/silver/gold namespaces or tables, no Part 9 roles (principals kept)")
+    print("part09: no raw.pos_events or gold.daily_store_sales, no Part 9 roles (principals kept, namespaces in use)")
 
 
 def setup() -> None:

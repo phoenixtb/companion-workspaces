@@ -1,0 +1,38 @@
+# Part 17: Larkspur's star schema (Parts 4 and 5) as a dbt project. dbt-core 1.12 + dbt-trino on the lakehouse.
+name: larkspur
+version: "1.0.0"
+profile: larkspur
+require-dbt-version: [">=1.12.0", "<3.0.0"]
+
+model-paths: ["models"]
+snapshot-paths: ["snapshots"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+vars:
+  as_of: "2026-10-04"          # the morning the snapshots see; `replay` steps it from 1 June
+  report_currency: GBP
+
+models:
+  larkspur:
+    +on_table_exists: replace  # CREATE OR REPLACE: one atomic commit, no rename-and-drop (see the post)
+    staging:
+      +schema: silver
+      +materialized: view
+    intermediate:
+      +schema: silver
+      +materialized: table
+    marts:
+      +schema: gold
+      +materialized: table
+
+snapshots:
+  larkspur:
+    +schema: silver
+
+data_tests:
+  larkspur:
+    +severity: error
+
+flags:
+  require_certificate_validation: true   # opt in now to dbt-trino's future default (no TLS in the lab anyway)

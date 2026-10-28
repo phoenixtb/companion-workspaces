@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: int_product_versions
+    description: Type 2 product versions derived from the daily catalogue extracts.
+  - name: int_sales_lines
+    description: POS and online sale lines with each line's local business date.
+  - name: int_refunds
+  - name: int_unresolved_products
+    description: Fact rows naming a product on a day the catalogue doesn't list it yet.
+
+unit_tests:
+  - name: a_changed_attribute_starts_a_new_version
+    description: Four daily extracts of one SKU; its category changes on the third. Unchanged days add nothing.
+    model: int_product_versions
+    given:
+      - input: ref('stg_catalog_products')
+        rows:
+          - {snapshot_date: 2026-06-01, sku: SKU-T, product_id: 1, product_name: Tea, category: Pantry, subcategory: Tea, brand: B, is_chilled: false, supplier_id: S001}
+          - {snapshot_date: 2026-06-02, sku: SKU-T, product_id: 1, product_name: Tea, category: Pantry, subcategory: Tea, brand: B, is_chilled: false, supplier_id: S001}
+          - {snapshot_date: 2026-06-03, sku: SKU-T, product_id: 1, product_name: Tea, category: Beverages, subcategory: Tea, brand: B, is_chilled: false, supplier_id: S001}
+          - {snapshot_date: 2026-06-04, sku: SKU-T, product_id: 1, product_name: Tea, category: Beverages, subcategory: Tea, brand: B, is_chilled: false, supplier_id: S001}
+    expect:
+      rows:
+        - {sku: SKU-T, version: 1, category: Pantry, valid_from: 2026-06-01, valid_to: 2026-06-03, is_current: false, current_category: Beverages}
+        - {sku: SKU-T, version: 2, category: Beverages, valid_from: 2026-06-03, valid_to: 9999-12-31, is_current: true, current_category: Beverages}

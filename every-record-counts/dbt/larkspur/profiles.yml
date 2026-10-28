@@ -1,0 +1,20 @@
+# Lab-only connection settings. dbt reads this file because DBT_PROFILES_DIR points here.
+larkspur:
+  target: lake
+  outputs:
+    lake:
+      type: trino                    # the dbt-trino adapter
+      method: none                   # no authentication in the lab; the catalog carries the identity
+      user: dbt
+      host: localhost
+      port: 8080
+      http_scheme: http
+      database: lakehouse_pipeline   # in dbt-trino, the Trino catalog
+      schema: silver                 # default namespace; models name theirs (a small macro stops "silver_gold")
+      timezone: UTC                  # the session's zone; without it, the laptop's (Gotcha)
+      threads: 2                     # models built in parallel (two: the lab Trino has a 2.4 GB heap)
+    local:                      # dbt-duckdb 1.11 (v1) or dbt-oss 2.0 (v2): a DuckDB file holding a few lake tables
+      type: duckdb
+      path: ../../data/lab/part17/extract.duckdb
+      schema: main
+      threads: 4

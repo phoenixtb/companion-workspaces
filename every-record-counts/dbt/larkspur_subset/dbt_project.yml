@@ -1,0 +1,12 @@
+# Part 17: the models tagged `portable` in ../larkspur (symlinked, not copied), built on a local DuckDB file by
+# dbt-duckdb 1.11 (v1) or dbt-oss 2.0 (v2). The main project can't be parsed by v2: see the post.
+name: larkspur_subset
+version: "1.0.0"
+profile: larkspur_subset
+
+vars:
+  report_currency: GBP
+
+models:
+  larkspur_subset:
+    +materialized: table

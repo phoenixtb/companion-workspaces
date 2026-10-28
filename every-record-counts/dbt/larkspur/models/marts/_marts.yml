@@ -1,0 +1,115 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: One row per calendar day of 2026 (date_key yyyymmdd); -1 is the "not yet" row.
+    columns:
+      - name: date_key
+        data_tests: [unique, not_null]
+
+  - name: dim_store
+    description: Stores (Type 1) plus one online row per country.
+    columns:
+      - name: store_key
+        data_tests: [unique, not_null]
+      - name: store_id
+        data_tests: [unique]
+
+  - name: dim_product
+    description: Type 2 product versions with Type 1 current_ columns; placeholders for early-arriving facts.
+    columns:
+      - name: product_key
+        data_tests: [unique, not_null]
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [sku, valid_from]
+
+  - name: dim_promotion
+    description: Promotion versions from snp_promotion, in force from version_from (inclusive) to version_to.
+    columns:
+      - name: promo_key
+        data_tests: [unique, not_null]
+
+  - name: dim_fx_rate
+    description: The FX rate in force on every calendar day, per currency pair.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ['"date"', base_currency, quote_currency]
+
+  - name: dim_sale_profile
+    columns:
+      - name: profile_key
+        data_tests: [unique, not_null]
+
+  - name: dim_supplier
+    columns:
+      - name: supplier_key
+        data_tests: [unique, not_null]
+
+  - name: fct_sales_line
+    description: "Grain: one row per line of a POS basket or an online order."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [transaction_id, line_no]
+    columns:
+      - name: product_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_key
+      - name: promo_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_promotion')
+                field: promo_key
+      - name: date_key
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+
+  - name: fct_basket
+    description: "Grain: one row per basket or order."
+    columns:
+      - name: transaction_id
+        data_tests: [unique, not_null]
+
+  - name: fct_refund
+    description: "Grain: one row per refund, dated by the refund."
+    columns:
+      - name: refund_id
+        data_tests: [unique, not_null]
+
+  - name: fct_stock_daily
+    description: "Grain: one row per store, product and business day. on_hand_qty is semi-additive."
+    data_tests:
+      - unique_combination_hashed:
+          arguments:
+            combination_of_columns: [date_key, store_key, product_key]
+
+  - name: fct_stock_adjustment
+    description: "Grain: one row per stock adjustment (at most one per store, product, day and reason)."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date_key, store_key, product_key, reason]
+
+  - name: fct_po_line
+    description: "Grain: one row per purchase-order line (accumulating snapshot)."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [po_number, po_line]
+
+  - name: rpt_daily_net_revenue
+    description: Net revenue per country and local business date in the reporting currency (minor units).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [country, business_date]

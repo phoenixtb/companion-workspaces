@@ -1,0 +1,8 @@
+larkspur_subset:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      path: ../../data/lab/part17/extract.duckdb
+      schema: main
+      threads: 4

@@ -1,6 +1,6 @@
 """Part 9: what the post claims about Polaris principals, roles, grants and credential vending.
 
-The module fixture stages Part 8's gold file if needed, resets the Part 9 namespaces and roles, runs `setup` and
+The module fixture stages Part 8's gold file if needed, resets the Part 9 tables and roles, runs `setup` and
 `load` (the pipeline principal writes raw.pos_events and gold.daily_store_sales). Trino and Spark checks run only
 when those services are up.
 """

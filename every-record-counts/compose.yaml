@@ -121,9 +121,11 @@ services:
     ports:
       - "8080:8080"
     volumes:
+      - ./trino/config.properties:/etc/trino/config.properties:ro   # the image's file: default metadata cache, query.min-expire-age 2m (Part 17)
       - ./trino/catalog/lakehouse.properties:/etc/trino/catalog/lakehouse.properties:ro
       - ./trino/catalog/lakehouse_analyst.properties:/etc/trino/catalog/lakehouse_analyst.properties:ro
       - ./trino/catalog/oltp.properties:/etc/trino/catalog/oltp.properties:ro   # PostgreSQL (Part 13)
+      - ./trino/catalog/lakehouse_pipeline.properties:/etc/trino/catalog/lakehouse_pipeline.properties:ro   # dbt (Part 17)
     mem_limit: 3g   # the image sizes the JVM heap at 80% of this
     healthcheck:
       test: ["CMD", "/usr/lib/trino/bin/health-check"]

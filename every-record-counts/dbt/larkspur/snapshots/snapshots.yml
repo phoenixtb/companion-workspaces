@@ -1,0 +1,21 @@
+version: 2
+
+snapshots:
+  - name: snp_product
+    description: Type 2 history of the catalogue, one row per version of each SKU, as seen by the morning runs.
+    relation: ref('stg_catalog_on_morning')
+    config:
+      unique_key: sku
+      strategy: check                    # the extract has no reliable updated_at: compare the attributes
+      check_cols: [product_name, category, subcategory, brand, is_chilled, supplier_id]
+      updated_at: extracted_at           # with check, valid_from = when the extract was taken, not the run time
+      dbt_valid_to_current: "timestamp '9999-12-31 00:00:00.000000 UTC'"   # half-open, like Part 4's dimensions
+
+  - name: snp_promotion
+    description: Type 2 history of promotions. The admin tool overwrites a promotion when it's edited.
+    relation: ref('stg_promotions_on_morning')
+    config:
+      unique_key: promo_id
+      strategy: timestamp                # the tool stamps every edit
+      updated_at: updated_at
+      dbt_valid_to_current: "timestamp '9999-12-31 00:00:00.000000 UTC'"

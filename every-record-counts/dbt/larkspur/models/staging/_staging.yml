@@ -1,0 +1,39 @@
+version: 2
+
+models:
+  - name: stg_pos_sale_lines
+    description: POS sale lines, first upload of each basket only.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [transaction_id, line_no]
+
+unit_tests:
+  - name: a_resent_basket_counts_once
+    description: >
+      A till reconnects and uploads basket B1 again under a new event_id (Part 6's duplicates). Only the first
+      upload's lines survive; B2 is untouched.
+    model: stg_pos_sale_lines
+    given:
+      - input: source('raw', 'pos_uploads')
+        format: sql
+        rows: |
+          select * from (values
+            ('E1', 'sale', 'GB-0001', 'T1', 'B1', timestamp '2026-09-30 10:00:00 UTC', timestamp '2026-09-30 10:05:00 UTC',
+             'GBP', cast(null as varchar),
+             array[cast(row(1, 'SKU-00001', 2, 150, 0, null) as row(line_no bigint, sku varchar, qty bigint, unit_price_minor bigint, discount_minor bigint, promo_id varchar))],
+             array[cast(row('card', 300) as row("type" varchar, amount_minor bigint))], date '2026-09-30'),
+            ('E2', 'sale', 'GB-0001', 'T1', 'B1', timestamp '2026-09-30 10:00:00 UTC', timestamp '2026-09-30 10:20:00 UTC',
+             'GBP', cast(null as varchar),
+             array[cast(row(1, 'SKU-00001', 2, 150, 0, null) as row(line_no bigint, sku varchar, qty bigint, unit_price_minor bigint, discount_minor bigint, promo_id varchar))],
+             array[cast(row('card', 300) as row("type" varchar, amount_minor bigint))], date '2026-09-30'),
+            ('E3', 'sale', 'GB-0001', 'T2', 'B2', timestamp '2026-09-30 11:00:00 UTC', timestamp '2026-09-30 11:01:00 UTC',
+             'GBP', 'L9',
+             array[cast(row(1, 'SKU-00002', 1, 500, 50, 'PR-0002') as row(line_no bigint, sku varchar, qty bigint, unit_price_minor bigint, discount_minor bigint, promo_id varchar))],
+             array[cast(row('wallet', 450) as row("type" varchar, amount_minor bigint))], date '2026-09-30')
+          ) as t (event_id, event_type, store_id, till_id, basket_id, event_ts, uploaded_at, currency, loyalty_id,
+                  lines, tenders, upload_date)
+    expect:
+      rows:
+        - {transaction_id: B1, line_no: 1, sku: SKU-00001, amount_minor: 300, has_loyalty_card: false}
+        - {transaction_id: B2, line_no: 1, sku: SKU-00002, amount_minor: 450, has_loyalty_card: true}

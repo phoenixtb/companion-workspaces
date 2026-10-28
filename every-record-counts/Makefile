@@ -5,7 +5,7 @@ BATCH := --profile core --profile batch
 ALL := --profile core --profile batch --profile olap --profile stream
 STREAM := --profile core --profile stream
 
-.PHONY: help env up-core up-batch up-trino up-spark up-olap up-stream stop-batch stop-olap stop-stream down reset data upload sellers-api test lint ci
+.PHONY: help env up-core up-batch up-trino up-spark up-olap up-stream stop-batch stop-olap stop-stream down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -59,6 +59,24 @@ upload:  ## copy data/raw into s3://larkspur-raw/raw/
 
 sellers-api:  ## run the mock marketplace sellers API on localhost:8765 (Part 15; Ctrl-C stops it)
 	uv run python -m scripts.part15_sellers_api
+
+DBT_OSS_VERSION := 2.0.8
+
+dbt-install:  ## dbt-core 1.12.6 + dbt-trino 1.11.0 + dbt-duckdb 1.11.1 into .venv, and the project's packages (Part 17)
+	uv sync --extra dbt
+	cd dbt/larkspur && DBT_PROFILES_DIR=. ../../.venv/bin/dbt deps
+	cd dbt/larkspur_subset && DBT_PROFILES_DIR=. ../../.venv/bin/dbt deps
+
+dbt-oss-install:  ## dbt-oss (dbt v2, Apache 2.0) into its own .venv-dbt2: it also installs a `dbt` command (Part 17)
+	uv venv --allow-existing --python 3.13 .venv-dbt2
+	uv pip install --python .venv-dbt2/bin/python dbt-oss==$(DBT_OSS_VERSION)
+
+dbt-lake: dbt-install  ## Part 17 on the lake: grants, landing, 126 snapshot mornings, dbt build, the check (make up-trino)
+	uv run python -m scripts.part17_dbt setup
+	uv run python -m scripts.part17_dbt land
+	uv run python -m scripts.part17_dbt replay
+	uv run python -m scripts.part17_dbt dbt build
+	uv run python -m scripts.part17_dbt check
 
 lint:  ## ruff lint and format check
 	uv run ruff check .
