@@ -8,8 +8,9 @@ BATCH := --profile core --profile batch
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
 
-env:  ## create .env from .env.example if it doesn't exist
+env:  ## create .env from .env.example if it doesn't exist; add keys added since (e.g. DELTA_VERSION, Part 8)
 	@test -f .env || cp .env.example .env
+	@grep -o '^[A-Z_]*=' .env.example | while read k; do grep -q "^$$k" .env || grep "^$$k" .env.example >> .env; done
 
 # `up --wait` treats a finished one-shot container as a failure, so wait on the
 # long-running services and run the catalog setup as its own step.

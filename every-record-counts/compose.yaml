@@ -126,7 +126,8 @@ services:
       args:
         SPARK_BASE_IMAGE: ${SPARK_BASE_IMAGE}
         ICEBERG_VERSION: ${ICEBERG_VERSION}
-    image: every-record-counts/spark:4.1.3-iceberg-${ICEBERG_VERSION}
+        DELTA_VERSION: ${DELTA_VERSION}
+    image: every-record-counts/spark:4.1.3-iceberg-${ICEBERG_VERSION}-delta-${DELTA_VERSION}
     profiles: [batch]
     environment:
       <<: *lab-env
