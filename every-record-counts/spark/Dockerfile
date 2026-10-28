@@ -16,8 +16,18 @@ ADD --chmod=644 ${MVN}/io/delta/delta-iceberg_2.13/${DELTA_VERSION}/delta-iceber
 ADD --chmod=644 ${MVN}/org/apache/hadoop/hadoop-aws/3.4.2/hadoop-aws-3.4.2.jar /opt/lakehouse/delta-jars/
 ADD --chmod=644 ${MVN}/software/amazon/awssdk/s3-transfer-manager/2.54.17/s3-transfer-manager-2.54.17.jar /opt/lakehouse/delta-jars/
 ADD --chmod=644 ${MVN}/software/amazon/awssdk/apache-client/2.54.17/apache-client-2.54.17.jar /opt/lakehouse/delta-jars/
+# Part 16: Structured Streaming's Kafka source (spark-sql-kafka-0-10 4.1.3 and what its POM pulls in that the image
+# lacks: the token provider, kafka-clients 3.9.1 and commons-pool2 2.12.1). On the default classpath: harmless to
+# sessions that never read Kafka.
+ARG SPARK_VERSION=4.1.3
+ADD --chmod=644 ${MVN}/org/apache/spark/spark-sql-kafka-0-10_2.13/${SPARK_VERSION}/spark-sql-kafka-0-10_2.13-${SPARK_VERSION}.jar /opt/spark/jars/
+ADD --chmod=644 ${MVN}/org/apache/spark/spark-token-provider-kafka-0-10_2.13/${SPARK_VERSION}/spark-token-provider-kafka-0-10_2.13-${SPARK_VERSION}.jar /opt/spark/jars/
+ADD --chmod=644 ${MVN}/org/apache/kafka/kafka-clients/3.9.1/kafka-clients-3.9.1.jar /opt/spark/jars/
+ADD --chmod=644 ${MVN}/org/apache/commons/commons-pool2/2.12.1/commons-pool2-2.12.1.jar /opt/spark/jars/
 USER root
-RUN mkdir -p /opt/lakehouse && chmod 755 /opt/lakehouse /opt/lakehouse/delta-jars
+# /opt/lakehouse/state: streaming checkpoints (Part 16), a named volume owned by the spark user.
+RUN mkdir -p /opt/lakehouse/state && chown spark /opt/lakehouse/state \
+    && chmod 755 /opt/lakehouse /opt/lakehouse/delta-jars
 USER spark
 COPY --chmod=644 spark-defaults.conf.template delta.conf.template /opt/lakehouse/
 COPY --chmod=755 start.sh /opt/lakehouse/start.sh

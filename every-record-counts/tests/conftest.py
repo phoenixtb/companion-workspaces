@@ -118,3 +118,19 @@ def clickhouse_up() -> bool:
 needs_clickhouse = pytest.mark.skipif(
     not (stack_up() and clickhouse_up()), reason="needs `make up-olap` (ClickHouse, Part 13)"
 )
+
+
+def cdc_up() -> bool:
+    import socket
+
+    for port in (9092, 8083):  # Kafka (host listener) and Kafka Connect's REST API
+        with socket.socket() as s:
+            s.settimeout(0.5)
+            if s.connect_ex(("localhost", port)):
+                return False
+    return True
+
+
+needs_cdc = pytest.mark.skipif(
+    not (stack_up() and cdc_up() and spark_up()), reason="needs `make up-stream` and `make up-spark` (Part 16)"
+)

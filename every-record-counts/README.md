@@ -44,6 +44,8 @@ start while Spark runs). Stop everything with `make down`; delete all data with
 | Trino (batch) | http://localhost:8080 | any user name, no password; catalog `oltp` logs in to PostgreSQL as `trino_reader` / `trino-reader-lab-secret` (Part 13) |
 | ClickHouse (olap, Part 13) | http://localhost:8123 (HTTP) | `larkspur` / `larkspur-lab-secret` |
 | Spark UI (batch, while a job runs) | http://localhost:4040 | none |
+| Kafka (stream, Part 16) | localhost:9092 (host), kafka:29092 (containers) | none |
+| Kafka Connect REST API (stream, Part 16) | http://localhost:8083 | none; Debezium logs in to PostgreSQL as `debezium` / `debezium-lab-secret` |
 
 The credentials are also in `.env.example`; `seaweedfs/s3.json` repeats the S3 keys because SeaweedFS
 reads identities from a file.
@@ -57,6 +59,7 @@ Every service has a memory limit, and the JVMs size their heaps from it. Start o
 | `core` | seaweedfs, postgres, polaris (+ one-shot bootstrap and catalog setup) | 1.5 GB + 1 GB + 1 GB |
 | `batch` | trino, spark | 3 GB + 2.5 GB |
 | `olap` | clickhouse (`make up-olap`; refuses to start while Spark runs) | 2 GB (server capped at 1.5 GiB in `clickhouse/config.d/lab.xml`) |
+| `stream` | kafka, connect (Debezium) (`make up-stream`, Part 16) | 1 GB (512 MB heap) + 1.25 GB (768 MB heap) |
 
 Measured on a MacBook Pro M3 Pro, Docker Desktop VM with 9.8 GB:
 
@@ -78,6 +81,7 @@ Measured on a MacBook Pro M3 Pro, Docker Desktop VM with 9.8 GB:
 | 13 | core + Trino + ClickHouse (`make up-trino`, `make up-olap`; Spark stopped) | 4.8 GiB | Trino 3.0 (its full 3 GB limit: the image commits 80% as heap at start), ClickHouse 0.94 (of 2; server capped at 1.5 GiB), Polaris 0.43, SeaweedFS 0.30, PostgreSQL 0.29 (sampled every ~2 s over seed, Trino, federation, ClickHouse over Iceberg, the MergeTree load, the serving view, the load test and the tests). ClickHouse spills big GROUP BYs to its volume (up to ~0.6 GiB) |
 | 14 | core | 0.92 GiB | Polaris 0.36, SeaweedFS 0.30, PostgreSQL 0.28 (40 samples over `estimate`, `incident` and the tests). `scripts.part14_sizing` reads the raw zone on disk and Iceberg manifests only (no data files); 381 MiB resident on the host. Needs Part 10's `part10.pos_monthly` and Part 7's `part07.clicks_v2` |
 | 15 | core (+ the mock sellers API on the host, `make sellers-api`) | 0.82 GiB | Polaris 0.34, SeaweedFS 0.19, PostgreSQL 0.28 (per-service peaks; 16 samples, ~2 s apart, over the full Part 15 sequence). dlt runs on the host: at most 291 MB resident per run (`/usr/bin/time -l`). No Spark or Trino |
+| 16 | core + stream + Spark (`make up-stream`, `make up-spark`) | 4.56 GiB | Spark 2.26 (driver 1.5 GB), Connect 0.97, Kafka 0.82, Polaris 0.40, SeaweedFS 0.38, PostgreSQL 0.31 (per-service peaks; 64 samples over reset, setup, snapshot, replay, both stream runs, reconcile, incident and compaction). Trino not needed. PostgreSQL now runs with `wal_level=logical` |
 
 ## The data
 
@@ -121,6 +125,7 @@ data/raw/
 | 13 | Engines at Scale | `scripts/part13_engines.py` (`reset`, `seed`, `trino`, `federate`, `clickhouse`, `load`, `serve`, `dashboard`; run with `python -m`), `sql/part13/` (`postgres/` targets, `trino/plan.sql` and `federation.sql`, `clickhouse/01_lake.sql` … `03_serve.sql`, dashboard tiles), `trino/catalog/oltp.properties`, `clickhouse/`: Part 11's queries in Trino over Iceberg (and the basket query hitting Trino's per-node memory limit); Trino joining Iceberg with store-ops sales targets in PostgreSQL, with what was pushed into each side; ClickHouse 26.8 reading the same table through Polaris (DataLakeCatalog, Beta), then from a MergeTree copy; a refreshable materialized view serving daily store sales and the query cache; a dashboard-tile load test at 1, 8 and 32 clients; `tests/test_part13.py` |
 | 14 | Design Review I | `scripts/part14_sizing.py` (`estimate`, `incident`; run with `python -m`): the design review's back-of-envelope sizing derived from the lab's own files: rows per day and bytes per row (raw gzip, raw JSON, Iceberg Parquet), full volume (×50) per day, per month and at the review's retention, files per day by commit cadence, the average nightly rewrite under month vs day partitions, files and column bytes the review's queries would read (planned from manifests with PyIceberg), the 9 a.m. burst against Part 13's measured rates, growth triggers; and the Season 1 incident ledger from the manifest; `tests/test_part14.py` |
 | 15 | Getting Data In | `scripts/part15_ingest.py` (`reset`, `suppliers`, `checks`, `sellers`, `reconcile`, `loads`; run with `python -m`), `scripts/part15_sellers_api.py` (a deterministic mock marketplace sellers API: keyset pages, 429 + `Retry-After`, a simulated clock), `datagen/sellers.py`, `ingest/supplier_feed.json` (file-name pattern, header aliases, declared date formats), `sql/part15/`: dlt lands every supplier CSV/XLSX row as text into the Iceberg table `raw.supplier_deliveries` (append, frozen columns, file manifest in dlt state) and one row per file into `raw.supplier_files`; checks classify every row (valid, repeat, quarantined with a reason) into `silver.supplier_deliveries` and `silver.supplier_delivery_quarantine`; the sellers API is pulled incrementally with and without a lag window (upsert into `raw.marketplace_sellers`), extracted in full (`raw.marketplace_sellers_full`) and reconciled; `tests/test_part15.py` |
+| 16 | Changes, Not Snapshots | `stream` profile (Kafka 4.4.0, Kafka Connect 4.3.1 with Debezium 3.7.0.Final; `make up-stream`), `kafka/connectors/larkspur-shop.json`, `sql/part16/` (`postgres/shop.sql`, `reconcile.sql`, `incident.sql`, `spark/maintain.sql`), `spark/jobs/part16_cdc.py`, `scripts/part16_cdc.py` (`reset`, `setup`, `connect`, `replay`, `topics`, `events`, `stream`, `order`, `reconcile`, `incident`, `maintain`; run with `python -m`): the order service's `shop.orders`/`payments`/`refunds` in PostgreSQL (`wal_level=logical`), loaded as of 1 July and replayed change by change from the generator's history; Debezium's initial snapshot then the stream into Kafka; Spark Structured Streaming (`availableNow`, `foreachBatch`) appending every change to `raw.*_changes` and `MERGE`ing into `raw.orders`/`payments`/`refunds` as Part 9's pipeline principal, with a batch tag and a guard (streamed changes over snapshot reads, then LSN) so a replayed batch changes nothing; row-by-row reconciliation against PostgreSQL; revenue step 2 (£57,064.96 of hard-deleted orders); compaction of the delete files; `tests/test_part16.py` |
 
 ## Layout
 

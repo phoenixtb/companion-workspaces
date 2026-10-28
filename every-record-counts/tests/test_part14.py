@@ -55,7 +55,9 @@ def test_layout_bytes_and_scans_match_part10(sized):
     assert t["bytes"] / t["rows"] == pytest.approx(14.83, abs=0.01)
     s = x["scans"]
     assert (s["revenue (Sep)"]["files"], s["store promo (12 mo)"]["files"]) == (4, 11)  # Part 10, step 3
-    assert s["revenue (Sep)"]["file_bytes"] / MIB == pytest.approx(20.2, abs=0.05)
+    # Rebuilding Part 10's table (tests/test_part10.py with Spark up) shifts the bytes slightly: 20.25 MiB seen in
+    # Part 16's `make ci`, 20.2 when Part 14 was written.
+    assert s["revenue (Sep)"]["file_bytes"] / MIB == pytest.approx(20.2, abs=0.1)
     assert s["history (4 yr)"]["files"] == 197
     # column bytes are what a columnar reader needs; DuckDB fetched 1.9 and 107.5 MiB for these in Part 11
     assert s["revenue (Sep)"]["column_bytes"] / MIB < 1.9

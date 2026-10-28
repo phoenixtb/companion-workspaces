@@ -2,9 +2,10 @@
 COMPOSE := docker compose
 CORE := --profile core
 BATCH := --profile core --profile batch
-ALL := --profile core --profile batch --profile olap
+ALL := --profile core --profile batch --profile olap --profile stream
+STREAM := --profile core --profile stream
 
-.PHONY: help env up-core up-batch up-trino up-spark up-olap stop-batch stop-olap down reset data upload sellers-api test lint ci
+.PHONY: help env up-core up-batch up-trino up-spark up-olap up-stream stop-batch stop-olap stop-stream down reset data upload sellers-api test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -32,11 +33,17 @@ up-olap: up-core  ## start core plus ClickHouse (Part 13; stop Spark first, they
 	@! $(COMPOSE) $(BATCH) ps --status running --services | grep -qx spark || (echo "stop Spark first: make stop-batch" && false)
 	$(COMPOSE) $(ALL) up -d --wait --no-deps clickhouse
 
+up-stream: up-core  ## start core plus Kafka and Kafka Connect with Debezium (Part 16)
+	$(COMPOSE) $(STREAM) up -d --wait --no-deps kafka connect
+
 stop-batch:  ## stop Trino and Spark, keep core running
 	$(COMPOSE) $(BATCH) stop trino spark
 
 stop-olap:  ## stop ClickHouse, keep its data volume
 	$(COMPOSE) $(ALL) stop clickhouse
+
+stop-stream:  ## stop Kafka and Connect, keep their data volume
+	$(COMPOSE) $(STREAM) stop connect kafka
 
 down:  ## stop everything, keep data volumes
 	$(COMPOSE) $(ALL) down
