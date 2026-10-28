@@ -1,0 +1,41 @@
+{
+  "sts": {
+    "tokenDuration": "1h",
+    "maxSessionLength": "12h",
+    "issuer": "seaweedfs-sts",
+    "signingKey": "bGFya3NwdXItbGFiLXN0cy1zaWduaW5nLWtleS0zMmJ5dGVz"
+  },
+  "policy": { "defaultEffect": "Deny" },
+  "policies": [
+    {
+      "name": "lake-tables",
+      "document": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": ["s3:*"],
+            "Resource": ["arn:aws:s3:::larkspur-lake", "arn:aws:s3:::larkspur-lake/warehouse/*"]
+          }
+        ]
+      }
+    }
+  ],
+  "roles": [
+    {
+      "roleName": "polaris-vending",
+      "roleArn": "arn:aws:iam::000000000000:role/polaris-vending",
+      "trustPolicy": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": { "AWS": "arn:aws:iam::000000000000:user/polaris" },
+            "Action": ["sts:AssumeRole"]
+          }
+        ]
+      },
+      "attachedPolicies": ["lake-tables"]
+    }
+  ]
+}

@@ -2,8 +2,46 @@
   "identities": [
     {
       "name": "larkspur",
-      "credentials": [{ "accessKey": "larkspur", "secretKey": "larkspur-lab-secret" }],
-      "actions": ["Admin", "Read", "Write", "List", "Tagging"]
+      "credentials": [
+        {
+          "accessKey": "larkspur",
+          "secretKey": "larkspur-lab-secret"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "Write",
+        "List",
+        "Tagging"
+      ]
+    },
+    {
+      "name": "polaris",
+      "credentials": [
+        {
+          "accessKey": "polaris",
+          "secretKey": "polaris-lab-secret"
+        }
+      ],
+      "actions": [
+        "Read:larkspur-lake",
+        "Write:larkspur-lake",
+        "List:larkspur-lake"
+      ]
+    },
+    {
+      "name": "lake-reader",
+      "credentials": [
+        {
+          "accessKey": "lake-reader",
+          "secretKey": "lake-reader-lab-secret"
+        }
+      ],
+      "actions": [
+        "Read:larkspur-lake",
+        "List:larkspur-lake"
+      ]
     }
   ]
 }

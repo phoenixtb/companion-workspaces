@@ -28,8 +28,8 @@ make upload       # copy it into s3://larkspur-raw/raw/
 make test         # tests that need the stack skip themselves when it's down
 ```
 
-Add Trino with `make up-trino`, Spark with `make up-spark`, or both with `make up-batch` (both need more memory
-than a 9.8 GB Docker VM leaves spare; Part 7 runs them one at a time). Stop everything with `make down`; delete all data with
+Add Trino with `make up-trino`, Spark with `make up-spark`, or both with `make up-batch` (together they peaked at 5.8 GiB of containers in Part 9;
+Part 7 ran them one at a time to be safe on a 9.8 GB Docker VM). Stop everything with `make down`; delete all data with
 `make reset`. `make help` lists every target.
 
 | Service | URL | Credentials (lab only) |
@@ -37,6 +37,8 @@ than a 9.8 GB Docker VM leaves spare; Part 7 runs them one at a time). Stop ever
 | SeaweedFS S3 API | http://localhost:8333 | `larkspur` / `larkspur-lab-secret` |
 | SeaweedFS filer UI (browse buckets) | http://localhost:8888 | none |
 | Polaris (Iceberg REST catalog) | http://localhost:8181/api/catalog | client `root` / `s3cr3t`, scope `PRINCIPAL_ROLE:ALL` |
+| Polaris principals (Part 9) | same | `analyst` / `analyst-lab-secret`, `pipeline` / `pipeline-lab-secret` (created by `scripts.part09_catalog setup`) |
+| SeaweedFS identities (Part 9) | S3 API | `polaris` (Polaris's own key, lake bucket only), `lake-reader` (read-only lake key for DuckDB); STS role `polaris-vending` in `seaweedfs/iam.json` |
 | PostgreSQL | localhost:5432, database `larkspur` | `larkspur` / `larkspur` |
 | Trino (batch) | http://localhost:8080 | any user name, no password |
 | Spark UI (batch, while a job runs) | http://localhost:4040 | none |
@@ -66,6 +68,7 @@ Measured on a MacBook Pro M3 Pro, Docker Desktop VM with 9.8 GB:
 | 6 | none for the DuckDB workbook; core + Trino (`make up-trino`) for the Trino steps | 4.3 GiB (containers) | SeaweedFS 0.86, Trino 2.9, Polaris 0.35, PostgreSQL 0.29. Host: `scripts.part06_sql build` 3.7 GiB resident; stop Trino afterwards |
 | 7 | core + Spark (`make up-spark`), then core + Trino (`make up-trino`) with Spark stopped | 3.2 GiB with Spark; 2.3 GiB with Trino | Spark 2.0, SeaweedFS 0.58, Polaris 0.41, PostgreSQL 0.28 (sampled every ~2 s). Trino 1.06 for the Part 7 reads (2.3 during `make ci` with Trino up, which runs Part 6's Trino tests). Spark and Trino together don't fit the 9.8 GB VM next to other containers. The Java demo (`./gradlew :iceberg-api-demo:run`), PyIceberg and DuckDB run on the host |
 | 8 | core + Spark (`make up-spark`) | 3.2 GiB | Spark 2.06 (Delta sessions), SeaweedFS 0.47, Polaris 0.42, PostgreSQL 0.29 (sampled every ~2 s). Trino not needed. DuckDB (Iceberg, DuckLake, Delta reads) runs on the host |
+| 9 | core + Trino + Spark (`make up-trino`, `make up-spark`) | 5.8 GiB (during `make ci`) | Trino 2.34, Spark 2.04, SeaweedFS 0.83, PostgreSQL 0.68, Polaris 0.35 (sampled every ~2 s). The Part 9 steps alone stay lower; Spark and Trino steps are skipped when the engine is down. PyIceberg and DuckDB run on the host |
 
 ## The data
 
@@ -102,6 +105,7 @@ data/raw/
 | 6 | SQL You Will Actually Use | `sql/part06/`, `scripts/part06_sql.py` (`build`, `query`; run with `python -m`), `scripts/part06_trino.py` (`load`, `query`): a DuckDB workbook over the raw zone and Part 5's star: re-sent POS events found by `basket_id` (revenue step 1), the clickstream sessionized two ways with the conversion gap taken apart, a funnel with `UNPIVOT`/`PIVOT`, window frames and ties, gaps and islands on stock-outs, `CUBE`, HyperLogLog vs exact, `MERGE` semantics, high-water marks, `EXPLAIN ANALYZE`; the same in Trino over an Iceberg copy of the clickstream; `tests/test_part06.py` |
 | 7 | The Table That Remembers | `sql/part07/` (`stage.sql` for DuckDB, `spark/*.sql`, `trino/reads.sql`), `spark/jobs/run_sql.py`, `scripts/part07_iceberg.py` (`reset`, `spark`, `tree`, `conflict`, `engines`; run with `python -m`), `iceberg-api-demo/` (Java 25, Gradle): Iceberg tables created through Polaris by Spark; the metadata tree read as plain JSON and Avro files; schema and partition evolution without rewrites; late POS lines merged; time travel by tag; a branch; one MERGE under copy-on-write and merge-on-read; a format v3 table with VARIANT, a deletion vector and row lineage, read by Spark, DuckDB and Trino; a PyIceberg vs Spark conflict; commits, retries and a failed validation through the Java API; `tests/test_part07.py` |
 | 8 | Format Wars, Ceasefire | `sql/part08/` (`stage.sql`, `ducklake_attach.sql`, `late_basket.sql`, `spark/01_delta.sql`), `spark/jobs/part08_late_baskets.py`, `spark/delta.conf.template` (Delta Lake 4.4.1 + S3A sessions), `scripts/part08_formats.py` (`reset`, `load`, `layout`, `late`, `flush`, `interop`; run with `python -m`): one gold table as Iceberg (DuckDB through Polaris), DuckLake 1.1 (catalog in PostgreSQL, files in SeaweedFS) and two Delta tables (Spark: deletion vectors; UniForm); where each keeps its metadata; what one and twenty one-row UPDATEs write (DuckLake data inlining, Delta checkpoints, copy-on-write under UniForm); every table read back by DuckDB, UniForm through `iceberg_scan`; `tests/test_part08.py` |
+| 9 | Who Owns the Truth | `scripts/part09_catalog.py` (`reset`, `setup`, `load`, `engines`, `access`, `pointer`, `load-table`, `duckdb-vended`; run with `python -m`), `sql/part09/attach.sql`, `trino/catalog/lakehouse_analyst.properties`, `seaweedfs/iam.json`: credential vending switched on in Polaris through SeaweedFS's STS; `raw`/`silver`/`gold` namespaces, `analyst` and `pipeline` principals, principal and catalog roles and grants, all over HTTP; the pipeline writes with vended keys; Spark, Trino, DuckDB and PyIceberg read one gold table as the analyst; the analyst refused on raw by the catalog in every engine, refused writes by storage, and a static bucket key going around the catalog; the catalog's row vs the bucket's objects; `tests/test_part09.py` |
 
 ## Layout
 
@@ -110,7 +114,7 @@ compose.yaml  .env.example  Makefile     the stack and its targets
 datagen/                                 the synthetic Larkspur generator
 sql/                                     DuckDB / Trino / Spark SQL used in the posts
 scripts/                                 upload_raw.py, duck.py (run SQL files against the raw zone)
-polaris/  postgres/  seaweedfs/  trino/  spark/   service configuration (spark/jobs: PySpark runners)
+polaris/  postgres/  seaweedfs/  trino/  spark/   service configuration (spark/jobs: PySpark runners; seaweedfs/iam.json: STS role)
 settings.gradle.kts  gradle/  iceberg-api-demo/  Java modules (Gradle, version catalog in gradle/libs.versions.toml)
 tests/                                   pytest; `make ci` runs ruff and the tests
 docs/versions.md  docs/injected-defects.md

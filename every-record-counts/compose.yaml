@@ -18,14 +18,15 @@ services:
     profiles: [core]
     command: >
       mini -dir=/data -bucket=larkspur-raw,larkspur-lake
-      -s3.config=/etc/seaweedfs/s3.json -s3.port.iceberg=0 -s3.port.lance=0
-      -master.telemetry=false
+      -s3.config=/etc/seaweedfs/s3.json -s3.iam.config=/etc/seaweedfs/iam.json
+      -s3.port.iceberg=0 -s3.port.lance=0 -master.telemetry=false
     ports:
       - "8333:8333"   # S3 API
       - "8888:8888"   # filer UI (browse buckets)
     volumes:
       - seaweedfs-data:/data
       - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+      - ./seaweedfs/iam.json:/etc/seaweedfs/iam.json:ro   # STS role Polaris assumes to vend credentials (Part 9)
     environment:
       GOMEMLIMIT: 1GiB   # Go's soft heap limit: collect harder well before the container limit
     mem_limit: 1536m   # Part 3 uploads a 1.7 GB object; 1 GB left no headroom
@@ -77,10 +78,15 @@ services:
     environment:
       <<: *polaris-db
       POLARIS_REALM_CONTEXT_REALMS: POLARIS
-      # Polaris writes table metadata files itself, so it needs storage credentials too.
-      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
-      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      # Polaris writes table metadata files itself and, from Part 9, calls STS to vend
+      # credentials, so it has its own storage identity (seaweedfs/s3.json: lake bucket only).
+      AWS_ACCESS_KEY_ID: ${POLARIS_S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${POLARIS_S3_SECRET_KEY}
       AWS_REGION: us-east-1
+      # Part 9 adds an STS role to the catalog Part 0 created without one; Polaris 1.8 refuses that change
+      # unless this flag is on. Decide on credential vending when you create a catalog, and leave this
+      # flag off outside this lab.
+      'polaris.features."ALLOW_UNRESTRICTED_STORAGE_CONFIG_ROLE_CHANGES"': "true"
     ports:
       - "8181:8181"   # Iceberg REST catalog + management API
       - "8182:8182"   # health and metrics
@@ -112,6 +118,7 @@ services:
       - "8080:8080"
     volumes:
       - ./trino/catalog/lakehouse.properties:/etc/trino/catalog/lakehouse.properties:ro
+      - ./trino/catalog/lakehouse_analyst.properties:/etc/trino/catalog/lakehouse_analyst.properties:ro
     mem_limit: 3g   # the image sizes the JVM heap at 80% of this
     healthcheck:
       test: ["CMD", "/usr/lib/trino/bin/health-check"]
