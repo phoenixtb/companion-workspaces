@@ -4,7 +4,7 @@ CORE := --profile core
 BATCH := --profile core --profile batch
 ALL := --profile core --profile batch --profile olap
 
-.PHONY: help env up-core up-batch up-trino up-spark up-olap stop-batch stop-olap down reset data upload test lint ci
+.PHONY: help env up-core up-batch up-trino up-spark up-olap stop-batch stop-olap down reset data upload sellers-api test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -49,6 +49,9 @@ data:  ## generate the raw zone into data/raw and refresh docs/injected-defects.
 
 upload:  ## copy data/raw into s3://larkspur-raw/raw/
 	uv run python scripts/upload_raw.py
+
+sellers-api:  ## run the mock marketplace sellers API on localhost:8765 (Part 15; Ctrl-C stops it)
+	uv run python -m scripts.part15_sellers_api
 
 lint:  ## ruff lint and format check
 	uv run ruff check .

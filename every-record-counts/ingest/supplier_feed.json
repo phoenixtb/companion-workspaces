@@ -1,0 +1,18 @@
+{
+  "landing_zone": "s3://larkspur-raw/raw/suppliers/deliveries/",
+  "file_name": "^(?P<supplier_id>S\\d{3})_(?P<file_date>\\d{8})\\.(?P<format>csv|xlsx)$",
+  "columns": ["PO Number", "PO Line", "SKU", "Delivered Qty", "Delivery Date", "DC"],
+  "header_aliases": {
+    "S017": {"Qty Delivered": "Delivered Qty"}
+  },
+  "date_format": {
+    "default": "%Y-%m-%d",
+    "S002": "%d/%m/%Y",
+    "S007": "%d/%m/%Y",
+    "S012": "%d/%m/%Y",
+    "S022": "%d/%m/%Y",
+    "S027": "%d/%m/%Y",
+    "S032": "%d/%m/%Y",
+    "S037": "%d/%m/%Y"
+  }
+}

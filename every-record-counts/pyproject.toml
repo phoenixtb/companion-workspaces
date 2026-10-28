@@ -12,6 +12,7 @@ dependencies = [
     "openpyxl>=3.1",
     "psycopg[binary]>=3.3",
     "fastavro>=1.13",
+    "dlt[filesystem,pyiceberg]>=1.31",
 ]
 
 [dependency-groups]

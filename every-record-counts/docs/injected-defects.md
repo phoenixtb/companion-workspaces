@@ -109,5 +109,18 @@ Fill rate (delivered / ordered, by expected date): 93.4%. On time in full: 78.0%
 | `page` renamed to `page_path` (web on 2026-08-15, app as users update to 5.0) | 2,675,104 events use the new name | `raw/clickstream/events/` | Schema drift (Parts 6, 20) |
 | `consent` block added on 2026-08-01 | 3,404,374 events carry it | `raw/clickstream/events/` | Schema evolution |
 
-Sources added in later seasons (marketplace sellers API, sensor telemetry, support tickets) bring their
-own defects; they are documented here when their output modes are added.
+## Marketplace sellers API (Part 15)
+
+`scripts/part15_sellers_api.py` serves the sellers from `datagen/sellers.py`: 1,200 at the
+first pull (2026-10-01 06:00 UTC). Before the second pull (2026-10-02 06:00 UTC):
+
+| Change between the pulls | Sellers | What an `updated_at` cursor does with it |
+|---|---|---|
+| New sellers | 24 | reads them |
+| Ordinary updates | 40 | reads them |
+| Updates stamped by an application node whose clock is 10 minutes slow, just after the first pull | 3 | misses them: stamped below the first pull's high-water mark, unless the pull re-reads a lag window |
+| Commission changed by a bulk fix that doesn't touch `updated_at` | 2 | misses them; a full extract finds them |
+| Hard-deleted | 1 | never sees it; a full extract (or CDC, Part 16) finds it |
+
+Sources added in later seasons (sensor telemetry, support tickets) bring their own defects; they are documented
+here when their output modes are added.

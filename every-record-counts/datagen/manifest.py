@@ -6,6 +6,7 @@ from pathlib import Path
 
 import polars as pl
 
+from datagen import sellers as marketplace
 from datagen import settings as s
 from datagen.clickstream import BOT_UA_PATTERN, CONSENT_FROM
 from datagen.clickstream import RENAME_FROM as CLICK_RENAME_FROM
@@ -139,6 +140,7 @@ def build(args: dict, ref, sales, events, waterfall: RevenueWaterfall, inv, supp
             "clickstream_events_with_page_path": clicks.defect_counts["events_with_page_path"],
             "clickstream_events_with_consent": clicks.defect_counts["events_with_consent"],
         },
+        "marketplace_sellers_api": marketplace.build(args["seed"]).defects,
         "psp_gb_q3_settled": {
             k: {"rows": v["rows"], "gross_minor": v["gross_minor"], "fee_minor": v["fee_minor"]}
             for k, v in sorted(by_type.items())
@@ -178,6 +180,7 @@ def write_json(m: dict, path: Path) -> None:
 def write_markdown(m: dict, path: Path) -> None:
     r = m["uk_net_revenue_q3"]
     d = m["defects"]
+    api = m["marketplace_sellers_api"]
     st = m["stock_availability_q3"]
     cv = m["conversion_q3"]
     sp = m["supplier_fill_q3"]
@@ -295,7 +298,20 @@ Fill rate (delivered / ordered, by expected date): {sp["fill_rate_q3"]:.1%}. On 
 | `page` renamed to `page_path` (web on {CLICK_RENAME_FROM}, app as users update to 5.0) | {d["clickstream_events_with_page_path"]:,} events use the new name | `raw/clickstream/events/` | Schema drift (Parts 6, 20) |
 | `consent` block added on {CONSENT_FROM} | {d["clickstream_events_with_consent"]:,} events carry it | `raw/clickstream/events/` | Schema evolution |
 
-Sources added in later seasons (marketplace sellers API, sensor telemetry, support tickets) bring their
-own defects; they are documented here when their output modes are added.
+## Marketplace sellers API (Part 15)
+
+`scripts/part15_sellers_api.py` serves the sellers from `datagen/sellers.py`: {api["sellers_at_first_pull"]:,} at the
+first pull ({marketplace.FIRST_PULL:%Y-%m-%d %H:%M} UTC). Before the second pull ({marketplace.SECOND_PULL:%Y-%m-%d %H:%M} UTC):
+
+| Change between the pulls | Sellers | What an `updated_at` cursor does with it |
+|---|---|---|
+| New sellers | {api["sellers_created_between_pulls"]:,} | reads them |
+| Ordinary updates | {api["sellers_updated_between_pulls"]:,} | reads them |
+| Updates stamped by an application node whose clock is {marketplace.CLOCK_SKEW.seconds // 60} minutes slow, just after the first pull | {api["sellers_updated_by_slow_clock"]:,} | misses them: stamped below the first pull's high-water mark, unless the pull re-reads a lag window |
+| Commission changed by a bulk fix that doesn't touch `updated_at` | {api["sellers_updated_without_updated_at"]:,} | misses them; a full extract finds them |
+| Hard-deleted | {api["sellers_hard_deleted"]:,} | never sees it; a full extract (or CDC, Part 16) finds it |
+
+Sources added in later seasons (sensor telemetry, support tickets) bring their own defects; they are documented
+here when their output modes are added.
 """
     path.write_text(text)
