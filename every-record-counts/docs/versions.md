@@ -123,3 +123,9 @@ in `pyproject.toml` and `uv.lock`. Re-verified at the start of every season.
 | Trino Parquet reads | 484 (`ParquetReaderOptions`) | Defaults: `parquet.small-file-threshold` 3MB (files below it read whole), `parquet.max-merge-distance` 1MB (nearby column chunks fetched in one read), `parquet.max-buffer-size` 8MB. On Part 10's small files (197 files, 0.6–6.9 MB) the history query's physical input was 1,175.5 MiB (726 MiB with `parquet_small_file_threshold = 0B`); ClickHouse fetched 1,021.6 MiB from S3; DuckDB 107.5 MiB (Part 11). |
 | Trino materialized views | 484 | `CREATE MATERIALIZED VIEW` on the Polaris catalog: "createMaterializedView is not supported for Iceberg REST catalog". |
 | Trino file system cache | 484 | The image ships `cache-manager.config-files=etc/cache-manager-memory.properties` (`cache-manager.name=memory`, `fs.memory-cache.max-size=2GB`, `ttl=24h`): the coordinator's metadata-file cache. Table data caching needs `fs.cache.enabled=true` per catalog and an `alluxio` cache manager (docs; not run). |
+
+## Part 14 additions (verified 2026-10-28)
+
+| Tool | Version | Notes |
+|---|---|---|
+| PyIceberg scan planning | 0.12.0 | `table.inspect.files()` (Arrow table of live data and delete files: `content`, `record_count`, `file_size_in_bytes`, `column_sizes`) and `table.scan(row_filter=...).plan_files()` (partition and file-statistics pruning from manifests; each task's `file.column_sizes` maps field ID → bytes) read manifests only. On Part 10's `pos_monthly` they planned 4 files (20.2 MiB) for the September revenue query and 11 for the store-promotion query, Spark's numbers in Part 10. `scripts/part14_sizing.py` uses them; no data files are read. |
