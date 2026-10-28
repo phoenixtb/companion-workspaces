@@ -3,7 +3,7 @@ of it under dbt v2 (dbt-oss) on a local DuckDB file.
 
 uv run python -m scripts.part17_dbt setup       # grants dbt needs in Polaris (catalog role `transformer`)
 uv run python -m scripts.part17_dbt land        # the raw files Season 2 hasn't ingested yet, as raw.* Iceberg tables
-uv run python -m scripts.part17_dbt dbt build   # any dbt command, in dbt/larkspur against Trino (the `lake` target)
+uv run python -m scripts.part17_dbt dbt build   # any dbt command, in dbt/larkspur against Trino (the `prod` target)
 uv run python -m scripts.part17_dbt replay      # run `dbt snapshot` once per morning, 1 June to 4 October
 uv run python -m scripts.part17_dbt history     # what the snapshots recorded
 uv run python -m scripts.part17_dbt check       # the dbt-built facts vs Part 5's corrected numbers
@@ -327,10 +327,11 @@ def builds(table: str = "gold.fct_sales_line") -> list:
 
 
 def unit_demo() -> str:
-    """Delete the line that drops re-sent baskets and run the unit test: it must fail. The file is restored after."""
+    """Delete the line that drops re-sent baskets' later copies and run the unit test: it must fail. The file is
+    restored after."""
     model = PROJECT / "models/staging/stg_pos_sale_lines.sql"
     original = model.read_text()
-    line = "join first_upload f on f.event_id = b.event_id\n"
+    line = "where c.event_id is null\n"
     assert line in original
     try:
         model.write_text(original.replace(line, ""))

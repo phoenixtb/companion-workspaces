@@ -1,3 +1,4 @@
+-- Version 1 (Part 17), kept under its old table name until its deprecation date (see _marts.yml).
 -- Net revenue per country and local business date, in the reporting currency at the rate of that date (Part 5):
 -- each basket's or order's total converted once, as the payment provider does; refunds on their own date.
 with sales as (

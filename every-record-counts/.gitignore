@@ -16,3 +16,4 @@ dbt/*/.user.yml
 dbt/larkspur_subset/target/
 dbt/larkspur_subset/dbt_packages/
 dbt/larkspur_subset/logs/
+dbt/larkspur/state/

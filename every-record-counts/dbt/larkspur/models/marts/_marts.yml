@@ -108,8 +108,44 @@ models:
             combination_of_columns: [po_number, po_line]
 
   - name: rpt_daily_net_revenue
-    description: Net revenue per country and local business date in the reporting currency (minor units).
+    description: >
+      Net revenue per country and local business date in the reporting currency (minor units). The table behind
+      Farah's revenue dashboard: its columns are a contract, and a breaking change ships as a new version.
+    latest_version: 2
+    config:
+      contract: {enforced: true}
+    constraints:
+      - type: primary_key          # not supported on Trino: dbt warns and leaves it out; the grain test is the guard
+        columns: [country, business_date]
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [country, business_date]
+    columns:
+      - name: country
+        data_type: varchar
+        constraints: [{type: not_null}]   # the one constraint dbt-trino enforces (a NOT NULL column)
+      - name: business_date
+        data_type: date
+        constraints: [{type: not_null}]
+      - name: sales_minor
+        data_type: bigint
+      - name: refunds_minor
+        data_type: bigint
+      - name: net_minor
+        data_type: bigint
+      - name: currency
+        data_type: varchar
+    versions:
+      - v: 1
+        deprecation_date: 2026-12-31
+        config:
+          alias: rpt_daily_net_revenue   # version 1 keeps the table name the dashboard reads
+      - v: 2                             # `currency` renamed `report_currency`; `is_provisional` added
+        columns:
+          - include: all
+            exclude: [currency]
+          - name: report_currency
+            data_type: varchar
+          - name: is_provisional
+            data_type: boolean

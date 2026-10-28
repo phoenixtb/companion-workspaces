@@ -89,10 +89,14 @@ services:
       # unless this flag is on. Decide on credential vending when you create a catalog, and leave this
       # flag off outside this lab.
       'polaris.features."ALLOW_UNRESTRICTED_STORAGE_CONFIG_ROLE_CHANGES"': "true"
+      # Part 18: an explicit heap (Polaris docs: JVM options go in JAVA_OPTS_APPEND). Until Part 17 the image sized
+      # the heap at 80% of a 1 GB limit, and dbt's thousands of vended-credential requests took the container to
+      # 0.99 GB; the limit is now 1.5 GB, leaving ~0.5 GB for metaspace, threads and the S3/STS clients.
+      JAVA_OPTS_APPEND: "-Xms512m -Xmx1g"
     ports:
       - "8181:8181"   # Iceberg REST catalog + management API
       - "8182:8182"   # health and metrics
-    mem_limit: 1g
+    mem_limit: 1536m
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8182/q/health"]
       interval: 5s
@@ -126,6 +130,7 @@ services:
       - ./trino/catalog/lakehouse_analyst.properties:/etc/trino/catalog/lakehouse_analyst.properties:ro
       - ./trino/catalog/oltp.properties:/etc/trino/catalog/oltp.properties:ro   # PostgreSQL (Part 13)
       - ./trino/catalog/lakehouse_pipeline.properties:/etc/trino/catalog/lakehouse_pipeline.properties:ro   # dbt (Part 17)
+      - ./trino/catalog/lakehouse_dev.properties:/etc/trino/catalog/lakehouse_dev.properties:ro   # dbt dev and CI (Part 18)
     mem_limit: 3g   # the image sizes the JVM heap at 80% of this
     healthcheck:
       test: ["CMD", "/usr/lib/trino/bin/health-check"]

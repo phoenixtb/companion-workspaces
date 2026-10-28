@@ -5,6 +5,8 @@ models:
     description: Type 2 product versions derived from the daily catalogue extracts.
   - name: int_sales_lines
     description: POS and online sale lines with each line's local business date.
+    config:
+      event_time: event_ts   # lets microbatch models filter what they read from it to one batch
   - name: int_refunds
   - name: int_unresolved_products
     description: Fact rows naming a product on a day the catalogue doesn't list it yet.

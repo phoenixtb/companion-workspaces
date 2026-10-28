@@ -5,7 +5,7 @@ BATCH := --profile core --profile batch
 ALL := --profile core --profile batch --profile olap --profile stream
 STREAM := --profile core --profile stream
 
-.PHONY: help env up-core up-batch up-trino up-spark up-olap up-stream stop-batch stop-olap stop-stream down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
+.PHONY: dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream stop-batch stop-olap stop-stream down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -77,6 +77,14 @@ dbt-lake: dbt-install  ## Part 17 on the lake: grants, landing, 126 snapshot mor
 	uv run python -m scripts.part17_dbt replay
 	uv run python -m scripts.part17_dbt dbt build
 	uv run python -m scripts.part17_dbt check
+
+# Slim CI (Part 18): build only what a change touches, and everything downstream of it, in the `dev` namespace;
+# unselected parents come from production's tables (--defer, --favor-state), as recorded in production's manifest
+# (`scripts.part18_dbt prod-state`). Microbatch models build three days, not all of history.
+DBT := cd dbt/larkspur && DBT_PROFILES_DIR=. DBT_SEND_ANONYMOUS_USAGE_STATS=false ../../.venv/bin/dbt
+dbt-ci:  ## slim CI: dbt build of state:modified+ in dev, deferring to production (Part 18)
+	$(DBT) build --target dev --select state:modified+ --state state/prod --defer --favor-state \
+	  --event-time-start 2026-10-02 --event-time-end 2026-10-05
 
 lint:  ## ruff lint and format check
 	uv run ruff check .
