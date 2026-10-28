@@ -113,12 +113,15 @@ services:
   trino:
     image: ${TRINO_IMAGE}
     profiles: [batch]
-    environment: *lab-env
+    environment:
+      <<: *lab-env
+      TRINO_PG_PASSWORD: ${TRINO_PG_PASSWORD}   # Part 13's read-only PostgreSQL role
     ports:
       - "8080:8080"
     volumes:
       - ./trino/catalog/lakehouse.properties:/etc/trino/catalog/lakehouse.properties:ro
       - ./trino/catalog/lakehouse_analyst.properties:/etc/trino/catalog/lakehouse_analyst.properties:ro
+      - ./trino/catalog/oltp.properties:/etc/trino/catalog/oltp.properties:ro   # PostgreSQL (Part 13)
     mem_limit: 3g   # the image sizes the JVM heap at 80% of this
     healthcheck:
       test: ["CMD", "/usr/lib/trino/bin/health-check"]
@@ -149,6 +152,31 @@ services:
     depends_on:
       polaris-setup: { condition: service_completed_successfully }
 
+  # ---------- olap: a real-time OLAP store (Part 13); never at the same time as Spark ----------
+  clickhouse:
+    image: ${CLICKHOUSE_IMAGE}
+    profiles: [olap]
+    environment:
+      CLICKHOUSE_USER: larkspur
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "8123:8123"   # HTTP interface (the lab's scripts use it)
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse/config.d/lab.xml:/etc/clickhouse-server/config.d/lab.xml:ro   # server memory and caches
+      - ./clickhouse/users.d/lab.xml:/etc/clickhouse-server/users.d/lab.xml:ro     # per-query limits
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    mem_limit: 2g   # config.d caps the server at 1.5 GiB inside it
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      interval: 3s
+      retries: 30
+    depends_on:
+      polaris-setup: { condition: service_completed_successfully }
+
 volumes:
   seaweedfs-data:
   postgres-data:
+  clickhouse-data:

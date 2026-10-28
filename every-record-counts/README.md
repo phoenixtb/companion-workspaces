@@ -29,7 +29,8 @@ make test         # tests that need the stack skip themselves when it's down
 ```
 
 Add Trino with `make up-trino`, Spark with `make up-spark`, or both with `make up-batch` (together they peaked at 5.8 GiB of containers in Part 9;
-Part 7 ran them one at a time to be safe on a 9.8 GB Docker VM). Stop everything with `make down`; delete all data with
+Part 7 ran them one at a time to be safe on a 9.8 GB Docker VM). Add ClickHouse with `make up-olap` (Part 13; it refuses to
+start while Spark runs). Stop everything with `make down`; delete all data with
 `make reset`. `make help` lists every target.
 
 | Service | URL | Credentials (lab only) |
@@ -40,7 +41,8 @@ Part 7 ran them one at a time to be safe on a 9.8 GB Docker VM). Stop everything
 | Polaris principals (Part 9) | same | `analyst` / `analyst-lab-secret`, `pipeline` / `pipeline-lab-secret` (created by `scripts.part09_catalog setup`) |
 | SeaweedFS identities (Part 9) | S3 API | `polaris` (Polaris's own key, lake bucket only), `lake-reader` (read-only lake key for DuckDB); STS role `polaris-vending` in `seaweedfs/iam.json` |
 | PostgreSQL | localhost:5432, database `larkspur` | `larkspur` / `larkspur` |
-| Trino (batch) | http://localhost:8080 | any user name, no password |
+| Trino (batch) | http://localhost:8080 | any user name, no password; catalog `oltp` logs in to PostgreSQL as `trino_reader` / `trino-reader-lab-secret` (Part 13) |
+| ClickHouse (olap, Part 13) | http://localhost:8123 (HTTP) | `larkspur` / `larkspur-lab-secret` |
 | Spark UI (batch, while a job runs) | http://localhost:4040 | none |
 
 The credentials are also in `.env.example`; `seaweedfs/s3.json` repeats the S3 keys because SeaweedFS
@@ -54,6 +56,7 @@ Every service has a memory limit, and the JVMs size their heaps from it. Start o
 | --- | --- | --- |
 | `core` | seaweedfs, postgres, polaris (+ one-shot bootstrap and catalog setup) | 1.5 GB + 1 GB + 1 GB |
 | `batch` | trino, spark | 3 GB + 2.5 GB |
+| `olap` | clickhouse (`make up-olap`; refuses to start while Spark runs) | 2 GB (server capped at 1.5 GiB in `clickhouse/config.d/lab.xml`) |
 
 Measured on a MacBook Pro M3 Pro, Docker Desktop VM with 9.8 GB:
 
@@ -72,6 +75,7 @@ Measured on a MacBook Pro M3 Pro, Docker Desktop VM with 9.8 GB:
 | 10 | core + Spark (`make up-spark`) | 3.55 GiB | Spark 2.13, SeaweedFS 0.83, Polaris 0.39, PostgreSQL 0.28 (sampled every ~2 s over the whole sequence, including the 72.6-million-row build and the Z-order rewrite). Trino not needed. Writing 1,511 day partitions needed `write.spark.fanout.enabled = false` to fit the 1.5 GB driver |
 | 11 | core; core + Spark (`make up-spark`) only for the Spark baseline | 2.9 GiB with Spark; 2.1 GiB core only | Spark 2.03–2.08, SeaweedFS 1.42 (of its 1.5 GB limit, while the host engines read with 12 threads), Polaris 0.40, PostgreSQL 0.28 (sampled every few seconds). Host: DuckDB peaked at 3.8 GiB RSS and Polars at 8.9 GiB on the basket query with no limits; 1.8 and 2.3 GiB with 1,500 MB limits. Stop Spark before profiling the host engines |
 | 12 | core + Spark (`make up-spark`) | 2.97 GiB | Spark 1.95 (of 2.5; 741.6 MiB unified memory in the 1.5 GB driver), Polaris 0.43, SeaweedFS 0.35, PostgreSQL 0.28 (sampled every ~2 s over pipeline ×2, ANSI demo, campaign build and the five join variants). The hot sort-merge task spills 0.3–0.4 GiB to local disk inside the container. Trino not needed |
+| 13 | core + Trino + ClickHouse (`make up-trino`, `make up-olap`; Spark stopped) | 4.8 GiB | Trino 3.0 (its full 3 GB limit: the image commits 80% as heap at start), ClickHouse 0.94 (of 2; server capped at 1.5 GiB), Polaris 0.43, SeaweedFS 0.30, PostgreSQL 0.29 (sampled every ~2 s over seed, Trino, federation, ClickHouse over Iceberg, the MergeTree load, the serving view, the load test and the tests). ClickHouse spills big GROUP BYs to its volume (up to ~0.6 GiB) |
 
 ## The data
 
@@ -112,6 +116,7 @@ data/raw/
 | 10 | Where the Bytes Live | `sql/part10/` (`spark/01_build.sql` … `08_orphans.sql`, `queries/*.sql`), `spark/jobs/part10_measure.py`, `part10_microbatches.py`, `part10_orphans.py`, `scripts/part10_layout.py` (`reset`, `spark`, `measure`, `microbatch`, `objects`, `crash`, `orphans`; run with `python -m`): four years of POS lines (72.6 million, twelve shifted copies of the lab's 126 days) as three Iceberg layouts (unpartitioned, day partitions, month partitions sorted by store); files, row groups and date spans per layout; a revenue and a store-promotion query measured from the Iceberg scan's own metrics; a Z-order rewrite; 41 hourly micro-batches and a merge-on-read delete; compaction, manifest rewrite, snapshot expiry and orphan-file removal, counted as objects in SeaweedFS; `tests/test_part10.py` |
 | 11 | You Might Not Need a Cluster | `sql/part11/` (`queries/*.sql`, `publish.sql`), `scripts/part11_single_node.py` (`host`, `profile`, `spark`, `explain`, `order`, `arrow`, `publish`, `lock`, `oldfile`; run with `python -m`), `spark/jobs/part11_spark.py`: Part 10's four years of POS lines read through Polaris by DuckDB 2.0 and Polars 2.1 on the host and by Spark in its container; the revenue, store-promotion, four-year history and basket-size queries profiled (first and warm times, peak RSS, bytes from S3, spill) with and without a Spark-sized share of the machine; identical digests across the three engines; Polars' plan and row order; Arrow hand-offs; DuckDB publishing an Iceberg gold table that Polars reads; DuckDB's file lock and 2.0 storage format; `tests/test_part11.py` |
 | 12 | Shuffle, Spill and Skew | `spark/jobs/part12_pipeline.py`, `part12_skew.py`, `part12_ui.py`, `sql/part12/ansi.sql`, `scripts/part12_spark.py` (`stage`, `reset`, `pipeline`, `ansi`, `build`, `hot`, `skew`; run with `python -m`): a PySpark job writing `silver.dim_store`, `silver.sales_line` (Q3 2026, month partitions, `overwritePartitions()` on re-runs) and `gold.daily_sales_by_format` with a broadcast join; ANSI mode on and off; `part12.campaign_lines`, a synthetic year in which store ID `GB-0001` carries 30% of 25 million lines; one join run five ways (broadcast, sort-merge, AQE skew join at default and lab-scaled thresholds, salting) with plans, task spread, shuffle bytes and spill read from the Spark UI's REST API; `tests/test_part12.py` |
+| 13 | Engines at Scale | `scripts/part13_engines.py` (`reset`, `seed`, `trino`, `federate`, `clickhouse`, `load`, `serve`, `dashboard`; run with `python -m`), `sql/part13/` (`postgres/` targets, `trino/plan.sql` and `federation.sql`, `clickhouse/01_lake.sql` … `03_serve.sql`, dashboard tiles), `trino/catalog/oltp.properties`, `clickhouse/`: Part 11's queries in Trino over Iceberg (and the basket query hitting Trino's per-node memory limit); Trino joining Iceberg with store-ops sales targets in PostgreSQL, with what was pushed into each side; ClickHouse 26.8 reading the same table through Polaris (DataLakeCatalog, Beta), then from a MergeTree copy; a refreshable materialized view serving daily store sales and the query cache; a dashboard-tile load test at 1, 8 and 32 clients; `tests/test_part13.py` |
 
 ## Layout
 

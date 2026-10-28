@@ -1,0 +1,11 @@
+<!-- Part 13: per-query limits for every user. -->
+<clickhouse>
+    <profiles>
+        <default>
+            <max_threads>4</max_threads>                          <!-- the Docker VM's 4 vCPUs -->
+            <max_memory_usage>1073741824</max_memory_usage>       <!-- 1 GiB per query -->
+            <!-- GROUP BY spills to disk above this instead of failing (Part 11's out-of-core idea). -->
+            <max_bytes_before_external_group_by>536870912</max_bytes_before_external_group_by>
+        </default>
+    </profiles>
+</clickhouse>

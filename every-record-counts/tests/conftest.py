@@ -105,3 +105,16 @@ def spark_up() -> bool:
 
 needs_spark = pytest.mark.skipif(not (stack_up() and spark_up()), reason="needs `make up-spark` and `make upload`")
 needs_trino = pytest.mark.skipif(not (stack_up() and trino_up()), reason="needs `make up-trino`")
+
+
+def clickhouse_up() -> bool:
+    import socket
+
+    with socket.socket() as s:
+        s.settimeout(0.5)
+        return s.connect_ex(("localhost", 8123)) == 0
+
+
+needs_clickhouse = pytest.mark.skipif(
+    not (stack_up() and clickhouse_up()), reason="needs `make up-olap` (ClickHouse, Part 13)"
+)

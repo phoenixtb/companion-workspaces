@@ -1,0 +1,21 @@
+<!-- Part 13: ClickHouse sized for a 2 GB container next to Trino and the core services.
+     The defaults assume a dedicated server (caches of several GiB); every number here is explicit. -->
+<clickhouse>
+    <!-- Hard cap for all queries and caches together; queries fail with MEMORY_LIMIT_EXCEEDED above it. -->
+    <max_server_memory_usage>1610612736</max_server_memory_usage>   <!-- 1.5 GiB of the 2 GB limit -->
+    <mark_cache_size>134217728</mark_cache_size>                   <!-- 128 MiB (default 5 GiB) -->
+    <index_mark_cache_size>67108864</index_mark_cache_size>         <!-- 64 MiB -->
+    <uncompressed_cache_size>0</uncompressed_cache_size>            <!-- off -->
+    <!-- Cache for Iceberg metadata files (metadata.json, manifest lists, manifests) read from the lake. -->
+    <iceberg_metadata_files_cache_size>67108864</iceberg_metadata_files_cache_size>
+    <!-- The query cache (results of SELECTs run with use_query_cache = 1): 64 MiB instead of 1 GiB. -->
+    <query_cache>
+        <max_size_in_bytes>67108864</max_size_in_bytes>
+    </query_cache>
+    <!-- The lab doesn't need the profiling and metric history tables. -->
+    <trace_log remove="1"/>
+    <metric_log remove="1"/>
+    <asynchronous_metric_log remove="1"/>
+    <text_log remove="1"/>
+    <latency_log remove="1"/>
+</clickhouse>

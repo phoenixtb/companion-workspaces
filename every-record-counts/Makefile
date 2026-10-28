@@ -2,8 +2,9 @@
 COMPOSE := docker compose
 CORE := --profile core
 BATCH := --profile core --profile batch
+ALL := --profile core --profile batch --profile olap
 
-.PHONY: help env up-core up-batch up-trino up-spark stop-batch down reset data upload test lint ci
+.PHONY: help env up-core up-batch up-trino up-spark up-olap stop-batch stop-olap down reset data upload test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -27,14 +28,21 @@ up-trino: up-core  ## start core plus Trino only (Part 1)
 up-spark: up-core  ## start core plus Spark only (Part 7: Spark and Trino don't fit in memory together)
 	$(COMPOSE) $(BATCH) up -d --wait --build --no-deps spark
 
+up-olap: up-core  ## start core plus ClickHouse (Part 13; stop Spark first, they don't fit together)
+	@! $(COMPOSE) $(BATCH) ps --status running --services | grep -qx spark || (echo "stop Spark first: make stop-batch" && false)
+	$(COMPOSE) $(ALL) up -d --wait --no-deps clickhouse
+
 stop-batch:  ## stop Trino and Spark, keep core running
 	$(COMPOSE) $(BATCH) stop trino spark
 
+stop-olap:  ## stop ClickHouse, keep its data volume
+	$(COMPOSE) $(ALL) stop clickhouse
+
 down:  ## stop everything, keep data volumes
-	$(COMPOSE) $(BATCH) down
+	$(COMPOSE) $(ALL) down
 
 reset:  ## stop everything and delete all data volumes
-	$(COMPOSE) $(BATCH) down -v
+	$(COMPOSE) $(ALL) down -v
 
 data:  ## generate the raw zone into data/raw and refresh docs/injected-defects.md
 	uv run python -m datagen --docs docs/injected-defects.md
