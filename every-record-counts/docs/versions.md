@@ -31,6 +31,8 @@ in `pyproject.toml` and `uv.lock`. Re-verified at the start of every season.
 | DuckDB `ASOF JOIN` | DuckDB 2.0.0 | Used for promotion versions and price history (Part 4). |
 | DuckDB time zones (ICU) | DuckDB 2.0.0 | `AT TIME ZONE` and `timezone(zone, TIMESTAMP …)` with IANA names, for local business dates and DST (Part 5). `round()` rounds half away from zero on DECIMAL and DOUBLE. |
 | botocore | 1.43.x | Comes with `s3fs` (via aiobotocore); Part 3 uses it directly for S3 conditional writes. SeaweedFS 4.51 honours `If-None-Match: *` and `If-Match` on PutObject (412 on failure). |
+| DuckDB SQL used in Part 6 | DuckDB 2.0.0 | `QUALIFY`, `PIVOT`/`UNPIVOT`, `GROUPING SETS`/`CUBE`, `approx_count_distinct` (HyperLogLog), `MERGE INTO` (since 1.4.0; a target row matched twice is an error, unmatched duplicates insert twice). `read_json` samples 32 files by default: use `union_by_name = true` for drifting JSON. |
+| Trino SQL used in Part 6 | Trino 484 | No `QUALIFY`. `PIVOT` since 483 (needs `GROUP BY` inside `PIVOT`, else one row); no `UNPIVOT`. `approx_distinct` (2.3% standard error), `approx_set`/`merge`/`cardinality`. |
 | ruff | 0.17.3 | |
 | pytest | 9.x | |
 | Docker Desktop | 29.8 | Lab measured with a 9.8 GB VM; see the README's memory matrix. |

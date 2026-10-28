@@ -61,6 +61,7 @@ Measured on a MacBook Pro M3 Pro, Docker Desktop VM with 9.8 GB:
 | 3 | core | 1.5 GiB | SeaweedFS 0.93 (limit raised to 1.5 GB for the 1.7 GB upload), Polaris 0.35, PostgreSQL 0.29; Trino stopped. Host: `part03_formats.py write` 6–7 GB resident, `part03_arrow.py` 3.7 GB |
 | 4 | none (`build --local`); core to read the bucket | 5.7 GiB RSS (DuckDB, host) | the star is one DuckDB file (`data/lab/part04/larkspur_star.duckdb`, ~375 MiB); from the bucket: containers 1.1 GiB (SeaweedFS 0.49, Polaris 0.34, PostgreSQL 0.28), host 6.1 GiB |
 | 5 | none (`build --local`) | 2.8 GiB RSS (DuckDB, host) | `scripts/part05_shapes.py build` copies Part 4's star and adds the vault, wide table, daily FX and closing stock in 16 s; the DuckDB file grows to 1.6 GiB (the vault's text hash keys and key indexes) |
+| 6 | none for the DuckDB workbook; core + Trino (`make up-trino`) for the Trino steps | 4.3 GiB (containers) | SeaweedFS 0.86, Trino 2.9, Polaris 0.35, PostgreSQL 0.29. Host: `scripts.part06_sql build` 3.7 GiB resident; stop Trino afterwards |
 
 ## The data
 
@@ -94,6 +95,7 @@ data/raw/
 | 3 | Bytes on Disk | `sql/part03/`, `scripts/part03_formats.py` (`write`, `compare`, `skip`), `part03_footer.py`, `part03_arrow.py`, `part03_object_store.py`: one table as CSV, JSON Lines, Avro and Parquet (codecs, sort orders, row-group sizes, 600 small files); bytes and GETs fetched from SeaweedFS; a Parquet footer read by hand; Arrow hand-off; S3 conditional writes |
 | 4 | Grain Before Glory | `sql/part04/`, `scripts/part04_star.py` (`build`, `query`): a star schema in DuckDB with transaction, periodic snapshot and accumulating snapshot facts, Type 2/Type 6 product and promotion dimensions, placeholders for early-arriving facts, an audit dimension; queries for the discount grain bug, refund dating (revenue step 3), semi-additive stock, as-sold vs restated categories and as-of promotions and prices; `tests/test_part04.py` |
 | 5 | Other Shapes | `sql/part05/`, `scripts/part05_shapes.py` (`build`, `query`; run with `python -m`): a Data Vault (hubs, links, satellites, insert-only, loaded as filed and again) and a wide table for the same refunds; FX rates densified per day; UK revenue waterfall steps 4 (FX as of the transaction date) and 5 (London business dates) landing on the correct figure; stock counted at close of day; money and DST primitives; a report reproduced as filed; `tests/test_part05.py` |
+| 6 | SQL You Will Actually Use | `sql/part06/`, `scripts/part06_sql.py` (`build`, `query`; run with `python -m`), `scripts/part06_trino.py` (`load`, `query`): a DuckDB workbook over the raw zone and Part 5's star: re-sent POS events found by `basket_id` (revenue step 1), the clickstream sessionized two ways with the conversion gap taken apart, a funnel with `UNPIVOT`/`PIVOT`, window frames and ties, gaps and islands on stock-outs, `CUBE`, HyperLogLog vs exact, `MERGE` semantics, high-water marks, `EXPLAIN ANALYZE`; the same in Trino over an Iceberg copy of the clickstream; `tests/test_part06.py` |
 
 ## Layout
 
