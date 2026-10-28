@@ -5,7 +5,7 @@ description = "Companion code for 'Every Record Counts: Data Engineering for Bac
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "numpy>=2.3",
-    "polars>=2.1",
+    "polars[iceberg]>=2.1",
     "pyarrow>=26.0",
     "duckdb>=2.0",
     "pyiceberg[pyarrow,s3fs,pyiceberg-core]>=0.12",
