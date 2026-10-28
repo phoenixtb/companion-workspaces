@@ -136,6 +136,7 @@ services:
     volumes:
       - ./spark/jobs:/opt/lakehouse/jobs:ro
       - ./sql:/opt/lakehouse/sql:ro
+      - ./data/lab:/opt/lakehouse/lab:ro   # files staged on the host (Part 7 onwards)
     mem_limit: 2560m
     depends_on:
       polaris-setup: { condition: service_completed_successfully }

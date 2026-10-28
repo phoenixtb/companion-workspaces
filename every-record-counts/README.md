@@ -14,6 +14,7 @@ Every command, query and output in the posts comes from this folder. Each part's
 | Docker Desktop (or another Docker engine with Compose v2) | recent; arm64 or amd64 | the services |
 | [uv](https://docs.astral.sh/uv/) | 0.13 or later | Python 3.13, the generator, DuckDB, tests |
 | `make` | any | the targets below |
+| JDK | 25 (Gradle downloads one if missing) | the Java modules (`./gradlew`), from Part 7 |
 
 Python packages (DuckDB 2.0, Polars 2.1, PyIceberg 0.12, PyArrow 26) install into `.venv` on the first
 `uv run`. Versions are pinned in `docs/versions.md`, `.env.example` and `uv.lock`.
@@ -27,7 +28,8 @@ make upload       # copy it into s3://larkspur-raw/raw/
 make test         # tests that need the stack skip themselves when it's down
 ```
 
-Add Trino with `make up-trino`, or Trino and Spark with `make up-batch`. Stop everything with `make down`; delete all data with
+Add Trino with `make up-trino`, Spark with `make up-spark`, or both with `make up-batch` (both need more memory
+than a 9.8 GB Docker VM leaves spare; Part 7 runs them one at a time). Stop everything with `make down`; delete all data with
 `make reset`. `make help` lists every target.
 
 | Service | URL | Credentials (lab only) |
@@ -62,6 +64,7 @@ Measured on a MacBook Pro M3 Pro, Docker Desktop VM with 9.8 GB:
 | 4 | none (`build --local`); core to read the bucket | 5.7 GiB RSS (DuckDB, host) | the star is one DuckDB file (`data/lab/part04/larkspur_star.duckdb`, ~375 MiB); from the bucket: containers 1.1 GiB (SeaweedFS 0.49, Polaris 0.34, PostgreSQL 0.28), host 6.1 GiB |
 | 5 | none (`build --local`) | 2.8 GiB RSS (DuckDB, host) | `scripts/part05_shapes.py build` copies Part 4's star and adds the vault, wide table, daily FX and closing stock in 16 s; the DuckDB file grows to 1.6 GiB (the vault's text hash keys and key indexes) |
 | 6 | none for the DuckDB workbook; core + Trino (`make up-trino`) for the Trino steps | 4.3 GiB (containers) | SeaweedFS 0.86, Trino 2.9, Polaris 0.35, PostgreSQL 0.29. Host: `scripts.part06_sql build` 3.7 GiB resident; stop Trino afterwards |
+| 7 | core + Spark (`make up-spark`), then core + Trino (`make up-trino`) with Spark stopped | 3.2 GiB with Spark; 2.3 GiB with Trino | Spark 2.0, SeaweedFS 0.58, Polaris 0.41, PostgreSQL 0.28 (sampled every ~2 s). Trino 1.06 for the Part 7 reads (2.3 during `make ci` with Trino up, which runs Part 6's Trino tests). Spark and Trino together don't fit the 9.8 GB VM next to other containers. The Java demo (`./gradlew :iceberg-api-demo:run`), PyIceberg and DuckDB run on the host |
 
 ## The data
 
@@ -96,6 +99,7 @@ data/raw/
 | 4 | Grain Before Glory | `sql/part04/`, `scripts/part04_star.py` (`build`, `query`): a star schema in DuckDB with transaction, periodic snapshot and accumulating snapshot facts, Type 2/Type 6 product and promotion dimensions, placeholders for early-arriving facts, an audit dimension; queries for the discount grain bug, refund dating (revenue step 3), semi-additive stock, as-sold vs restated categories and as-of promotions and prices; `tests/test_part04.py` |
 | 5 | Other Shapes | `sql/part05/`, `scripts/part05_shapes.py` (`build`, `query`; run with `python -m`): a Data Vault (hubs, links, satellites, insert-only, loaded as filed and again) and a wide table for the same refunds; FX rates densified per day; UK revenue waterfall steps 4 (FX as of the transaction date) and 5 (London business dates) landing on the correct figure; stock counted at close of day; money and DST primitives; a report reproduced as filed; `tests/test_part05.py` |
 | 6 | SQL You Will Actually Use | `sql/part06/`, `scripts/part06_sql.py` (`build`, `query`; run with `python -m`), `scripts/part06_trino.py` (`load`, `query`): a DuckDB workbook over the raw zone and Part 5's star: re-sent POS events found by `basket_id` (revenue step 1), the clickstream sessionized two ways with the conversion gap taken apart, a funnel with `UNPIVOT`/`PIVOT`, window frames and ties, gaps and islands on stock-outs, `CUBE`, HyperLogLog vs exact, `MERGE` semantics, high-water marks, `EXPLAIN ANALYZE`; the same in Trino over an Iceberg copy of the clickstream; `tests/test_part06.py` |
+| 7 | The Table That Remembers | `sql/part07/` (`stage.sql` for DuckDB, `spark/*.sql`, `trino/reads.sql`), `spark/jobs/run_sql.py`, `scripts/part07_iceberg.py` (`reset`, `spark`, `tree`, `conflict`, `engines`; run with `python -m`), `iceberg-api-demo/` (Java 25, Gradle): Iceberg tables created through Polaris by Spark; the metadata tree read as plain JSON and Avro files; schema and partition evolution without rewrites; late POS lines merged; time travel by tag; a branch; one MERGE under copy-on-write and merge-on-read; a format v3 table with VARIANT, a deletion vector and row lineage, read by Spark, DuckDB and Trino; a PyIceberg vs Spark conflict; commits, retries and a failed validation through the Java API; `tests/test_part07.py` |
 
 ## Layout
 
@@ -104,7 +108,8 @@ compose.yaml  .env.example  Makefile     the stack and its targets
 datagen/                                 the synthetic Larkspur generator
 sql/                                     DuckDB / Trino / Spark SQL used in the posts
 scripts/                                 upload_raw.py, duck.py (run SQL files against the raw zone)
-polaris/  postgres/  seaweedfs/  trino/  spark/   service configuration
+polaris/  postgres/  seaweedfs/  trino/  spark/   service configuration (spark/jobs: PySpark runners)
+settings.gradle.kts  gradle/  iceberg-api-demo/  Java modules (Gradle, version catalog in gradle/libs.versions.toml)
 tests/                                   pytest; `make ci` runs ruff and the tests
 docs/versions.md  docs/injected-defects.md
 ```

@@ -1,0 +1,16 @@
+# Every Java dependency of the lab, in one place. Verified against Maven Central on 2026-10-28.
+
+[versions]
+iceberg = "1.12.0"
+hadoop = "3.5.0"      # parquet-hadoop (under iceberg-parquet) needs Hadoop's Configuration class at runtime
+slf4j = "2.0.20"
+
+[libraries]
+iceberg-core = { module = "org.apache.iceberg:iceberg-core", version.ref = "iceberg" }
+iceberg-data = { module = "org.apache.iceberg:iceberg-data", version.ref = "iceberg" }
+iceberg-parquet = { module = "org.apache.iceberg:iceberg-parquet", version.ref = "iceberg" }
+iceberg-aws-bundle = { module = "org.apache.iceberg:iceberg-aws-bundle", version.ref = "iceberg" }
+iceberg-aws = { module = "org.apache.iceberg:iceberg-aws", version.ref = "iceberg" }
+hadoop-client-api = { module = "org.apache.hadoop:hadoop-client-api", version.ref = "hadoop" }
+hadoop-client-runtime = { module = "org.apache.hadoop:hadoop-client-runtime", version.ref = "hadoop" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }

@@ -87,3 +87,21 @@ def trino_rows(sql: str) -> list:
         if "nextUri" not in page:
             return rows
         page = json.load(urllib.request.urlopen(page["nextUri"]))
+
+
+def spark_up() -> bool:
+    try:
+        out = subprocess.run(
+            ["docker", "compose", "ps", "--status", "running", "--services"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        ).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return "spark" in out.split()
+
+
+needs_spark = pytest.mark.skipif(not (stack_up() and spark_up()), reason="needs `make up-spark` and `make upload`")
+needs_trino = pytest.mark.skipif(not (stack_up() and trino_up()), reason="needs `make up-trino`")

@@ -36,3 +36,17 @@ in `pyproject.toml` and `uv.lock`. Re-verified at the start of every season.
 | ruff | 0.17.3 | |
 | pytest | 9.x | |
 | Docker Desktop | 29.8 | Lab measured with a 9.8 GB VM; see the README's memory matrix. |
+
+## Part 7 additions (verified 2026-10-28)
+
+| Tool | Version | Notes |
+|---|---|---|
+| Iceberg tables | format v2 by default | `format-version` defaults to 2 (since Iceberg 1.4.0); Polaris 1.8 + Spark created v2 without asking. `TBLPROPERTIES ('format-version' = '3')` makes v3. |
+| Iceberg write modes | Iceberg 1.12.0 | `write.delete.mode`, `write.update.mode`, `write.merge.mode`: `copy-on-write` (default) or `merge-on-read`. `write.*.isolation-level`: `serializable` (default) or `snapshot`. `commit.retry.num-retries` 4. |
+| Spark + Iceberg v3 | Spark 4.1.3, Iceberg 1.12.0 | VARIANT (`parse_json`, `variant_get`), deletion vectors (Puffin), row lineage (`_row_id`, `_last_updated_sequence_number`) worked. Column defaults: "setting default values in Spark is currently unsupported" (apache/iceberg#16698). |
+| DuckDB 2.0 + Iceberg v3 | DuckDB 2.0.0 | Reads VARIANT, applies deletion vectors, exposes `_row_id`; writes merge-on-read only. |
+| Trino 484 + Iceberg v3 | Trino 484 | Format v3 "experimental": read the VARIANT column (`typeof` = `variant`, `CAST(payload AS JSON)`) and applied the deletion vector. |
+| PyIceberg | 0.12.0 + `pyiceberg-core` 0.10.1 | Can't load a table with a `variant` column ("Unsupported field type"). Deletes on tables with delete files need the `pyiceberg-core` extra. Retries `CommitFailedException` automatically and raises `ValidationException` on a real conflict. |
+| fastavro | 1.13.1 | Reads manifest lists and manifests directly (Part 7's metadata walk). |
+| Polaris drop with purge | Polaris 1.8.0 | Refused unless `DROP_WITH_PURGE_ENABLED` (or the catalog's `polaris.config.drop-with-purge.enabled`) is set; the lab drops without purge and deletes the files itself. |
+| Java / Gradle | Temurin 25.0.4, Gradle 9.8.2 (wrapper) | `iceberg-api-demo`: `iceberg-core`, `iceberg-data`, `iceberg-parquet`, `iceberg-aws` 1.12.0, `iceberg-aws-bundle` (runtime), `hadoop-client-api`/`-runtime` 3.5.0 (runtime, for parquet-hadoop), `slf4j-simple` 2.0.20. Versions in `gradle/libs.versions.toml`. |

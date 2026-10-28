@@ -3,7 +3,7 @@ COMPOSE := docker compose
 CORE := --profile core
 BATCH := --profile core --profile batch
 
-.PHONY: help env up-core up-batch up-trino stop-batch down reset data upload test lint ci
+.PHONY: help env up-core up-batch up-trino up-spark stop-batch down reset data upload test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -22,6 +22,9 @@ up-batch: up-core  ## start core plus Trino and Spark
 
 up-trino: up-core  ## start core plus Trino only (Part 1)
 	$(COMPOSE) $(BATCH) up -d --wait --no-deps trino
+
+up-spark: up-core  ## start core plus Spark only (Part 7: Spark and Trino don't fit in memory together)
+	$(COMPOSE) $(BATCH) up -d --wait --build --no-deps spark
 
 stop-batch:  ## stop Trino and Spark, keep core running
 	$(COMPOSE) $(BATCH) stop trino spark
