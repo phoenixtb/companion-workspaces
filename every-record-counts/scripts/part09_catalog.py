@@ -297,7 +297,10 @@ def load() -> dict:
         raise SystemExit(f"missing {GOLD_SOURCE}: run `uv run python scripts/duck.py --local sql/part08/stage.sql`")
     cat, tok = pyiceberg("pipeline"), token()
     out = {}
-    for ident, data in [("raw.pos_events", raw_events()), ("gold.daily_store_sales", pq.read_table(GOLD_SOURCE))]:
+    from scripts import part23_privacy as privacy  # Part 23: people who asked to be erased stay erased
+
+    events = privacy.suppress(raw_events(), tombstone={"loyalty_id": "loyalty_id"})
+    for ident, data in [("raw.pos_events", events), ("gold.daily_store_sales", pq.read_table(GOLD_SOURCE))]:
         ns, name = ident.split(".")
         drop_table(ns, name, tok)  # re-runs start from an empty table
         table = cat.create_table(ident, schema=data.schema)
@@ -449,8 +452,11 @@ def storage_bypass(gold) -> dict[str, str]:
         "CREATE SECRET (TYPE s3, KEY_ID 'lake-reader', SECRET 'lake-reader-lab-secret', REGION 'us-east-1', "
         "ENDPOINT 'localhost:8333', URL_STYLE 'path', USE_SSL false)"
     )
-    n = con.execute(f"SELECT count(*) FROM read_parquet('{raw_glob}')").fetchone()[0]
-    out["raw files, static read key"] = f"ok, {n:,} rows (loyalty_id included)"
+    try:
+        n = con.execute(f"SELECT count(*) FROM read_parquet('{raw_glob}')").fetchone()[0]
+        out["raw files, static read key"] = f"ok, {n:,} rows (loyalty_id included)"
+    except duckdb.Error as e:  # from Part 23 the key reads two prefixes only (seaweedfs/s3.json)
+        out["raw files, static read key"] = "denied: " + short(str(e))
     # 2. The credentials Polaris vended to the analyst for the gold table: scoped to that table's prefix.
     p = gold.io.properties
     s3 = pafs.S3FileSystem(

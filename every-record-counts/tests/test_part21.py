@@ -63,9 +63,13 @@ def test_injected_resend_is_counted_once_and_not_double_counted(ready):
         data = con.sql(
             f"SELECT * EXCLUDE (schema_version) FROM read_json('{folder}/*.jsonl.gz', hive_partitioning = true)"
         )
+        from scripts import part23_privacy as privacy
+
         table = lab.catalog().load_table("raw.pos_uploads")
         table.overwrite(
-            data.to_arrow_table().cast(table.schema().as_arrow()),
+            privacy.suppress(
+                data.to_arrow_table().cast(table.schema().as_arrow()), tombstone={"loyalty_id": "loyalty_id"}
+            ),
             overwrite_filter=lab.EqualTo("upload_date", DAY.isoformat()),
         )
 

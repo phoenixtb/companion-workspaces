@@ -133,6 +133,9 @@ def empty_dev(names: list[str]) -> None:
 def land_pos(where: str, fresh: bool) -> int:
     """Land raw POS uploads (Part 17's raw.pos_uploads), one Iceberg append per call, as the pipeline principal."""
     data: pa.Table = p17.raw_views().sql(POS.format(where=where)).to_arrow_table()
+    from scripts import part23_privacy as privacy  # Part 23: people who asked to be erased stay erased
+
+    data = privacy.suppress(data, tombstone=p17.SUPPRESSED["pos_uploads"])
     cat = cat9.pyiceberg("pipeline")
     if fresh:
         cat9.drop_table("raw", "pos_uploads", cat9.token())

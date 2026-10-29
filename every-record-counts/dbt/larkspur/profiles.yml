@@ -16,7 +16,7 @@ larkspur:
     dev:                             # Part 18: a developer's or CI's builds, all in one namespace, as another principal
       type: trino
       method: none
-      user: dbt
+      user: dbt_dev                  # Part 23: its own Trino user; OPA lets it write only lakehouse_dev
       host: "{{ env_var('LAB_TRINO_HOST', 'localhost') }}"
       port: 8080
       http_scheme: http

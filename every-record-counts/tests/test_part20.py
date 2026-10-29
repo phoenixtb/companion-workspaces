@@ -52,20 +52,24 @@ def test_contracts_hold_on_the_lakehouse(lake):
 @has_cli
 def test_july_contract_catches_the_rename(lake):
     out = contracts.test(JULY)
+    # 2,675,104 events without `page` at Part 20; Part 23's documented erasure (ER-2026-1029-001) removed 9 of them
     assert [(c["field"], c["reason"]) for c in out["failed"]] == [
-        ("page", "Actual missing_count(page) was 2675104, expected = 0")
+        ("page", "Actual missing_count(page) was 2675095, expected = 0")
     ]
 
 
 @needs_stack
 def test_contracted_conversion_is_one_number(lake):
-    assert contracts.conversion() == {"sessions": 2161516, "converted": 134224, "conversion_pct": 6.21}
+    # Part 20 published 2,161,516 sessions, 134,224 converted; Part 23's documented erasure removed one, converted
+    assert contracts.conversion() == {"sessions": 2161515, "converted": 134223, "conversion_pct": 6.21}
 
 
 @needs_batch
 def test_trino_484_cannot_write_branches():
     _, err = cat9.trino(f"CREATE BRANCH audit IN TABLE lakehouse_pipeline.{wap.TABLE}")
-    assert err == "This connector does not support creating branches"
+    # Before Part 23 the Iceberg connector refused; with OPA access control on, Trino refuses first (OPA isn't asked)
+    assert err in ("This connector does not support creating branches",
+                   f"Access Denied: Cannot create a branch in lakehouse_pipeline.{wap.TABLE}")  # fmt: skip
 
 
 needs_spark = pytest.mark.skipif(not cat9.spark_up(), reason="needs `make up-spark`")

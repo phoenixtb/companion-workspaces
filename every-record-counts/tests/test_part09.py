@@ -104,8 +104,9 @@ def test_vended_credentials_are_table_scoped(access):
         "s3:GetBucketLocation, s3:GetObject, s3:GetObjectVersion, s3:ListBucket; "
         "objects larkspur-lake/warehouse/gold/daily_store_sales/*; list prefix warehouse/gold/daily_store_sales/*"
     )
-    # A static key for the bucket ignores the catalog's grants entirely.
-    assert access["raw files, static read key"].startswith("ok, ")
+    # A static key for the bucket ignores the catalog's grants entirely: until Part 23 it read raw.pos_events
+    # ("ok, 16,917 rows"); Part 23 narrowed it to two non-personal prefixes, so the object store refuses now.
+    assert access["raw files, static read key"].startswith("denied: ")
 
 
 def test_catalog_stores_a_pointer(loaded):

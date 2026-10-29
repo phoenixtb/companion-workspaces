@@ -195,7 +195,7 @@ def test_trino(tmp_path):
         pytest.skip("needs the Part 6 workbook (scripts.part06_sql build --local)")
     trino.load()
     _, rows, _ = trino.run((ROOT / "sql/part06/trino/dialect.sql").read_text().split(";")[-2])
-    assert rows == [[2161516, 134224, 6.21]]
+    assert rows == [[2161515, 134223, 6.21]]  # the workbook's 2,161,516 minus Part 23's erasure (load suppresses it)
     with pytest.raises(RuntimeError, match="mismatched input 'row_number'"):
         trino.run("SELECT count(*) FROM lakehouse.part06.clicks QUALIFY row_number() OVER (ORDER BY event_ts) = 1")
     _, rows, _ = trino.run(

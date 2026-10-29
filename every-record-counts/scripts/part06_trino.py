@@ -16,6 +16,7 @@ import urllib.request
 from pathlib import Path
 
 import duckdb
+import pyarrow as pa
 
 from scripts import part04_star as star
 from scripts import part06_sql as workbook
@@ -36,7 +37,11 @@ def load() -> None:
     if fs.exists("larkspur-lake/warehouse/part06/clicks"):
         fs.rm("larkspur-lake/warehouse/part06/clicks", recursive=True)
     started = time.monotonic()
-    con.execute("CREATE TABLE lake.part06.clicks AS FROM wb.clicks")
+    from scripts import part23_privacy as privacy  # Part 23: people who asked to be erased stay out of this copy too
+
+    ids = con.sql("SELECT DISTINCT anonymous_id FROM wb.clicks").to_arrow_table().column(0)
+    con.register("erased", pa.table({"anonymous_id": privacy.matching(ids, "anonymous_id")}))
+    con.execute("CREATE TABLE lake.part06.clicks AS FROM wb.clicks WHERE anonymous_id NOT IN (FROM erased)")
     rows = con.execute("SELECT count(*) FROM lake.part06.clicks").fetchone()[0]
     print(f"lake.part06.clicks: {rows:,} rows ({time.monotonic() - started:.1f}s)")
 

@@ -21,3 +21,11 @@ print(
     f"uploaded {len(files)} files, {sum(p.stat().st_size for p in files) / 1e6:.0f} MB "
     f"to s3://larkspur-raw/raw/ in {time.monotonic() - started:.0f}s"
 )
+# Part 23: the generator's files still hold people who asked to be erased; the landing zone must not. Apply the
+# suppression list (needs Polaris: `make up-core`) to every file just uploaded.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from scripts import part23_privacy as privacy  # noqa: E402
+
+if privacy.suppression_list():
+    for where, action, n in privacy.rewrite_raw():
+        print(f"suppression list: {where} {action} {n}")

@@ -31,6 +31,7 @@ import duckdb
 
 from scripts import part09_catalog as cat9
 from scripts import part17_dbt as p17
+from scripts import part23_privacy as privacy
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECKS = ROOT / "sql/part19/checks.sql"
@@ -71,6 +72,7 @@ def setup() -> None:
         print(f"raw.pos_uploads already partitioned: {table.spec()}")
         return
     data = p17.raw_views().sql(POS.format(where="true") + " ORDER BY upload_date, uploaded_at").to_arrow_table()
+    data = privacy.suppress(data, tombstone=p17.SUPPRESSED["pos_uploads"])  # Part 23: erased people stay erased
     cat9.drop_table("raw", "pos_uploads", cat9.token())
     table = cat.create_table("raw.pos_uploads", schema=data.schema)
     with table.update_spec() as spec:  # on the empty table: every file written from now on holds one upload day
@@ -91,6 +93,7 @@ def ingest(day: date) -> dict:
     data = con.sql(f"SELECT * EXCLUDE (schema_version) FROM read_json('{folder}/*.jsonl.gz', hive_partitioning = true)")
     table = cat9.pyiceberg("pipeline").load_table("raw.pos_uploads")
     data = data.to_arrow_table().cast(table.schema().as_arrow())  # one day's JSON, typed as the table's columns
+    data = privacy.suppress(data, tombstone=p17.SUPPRESSED["pos_uploads"])  # Part 23: erased people stay erased
     table.overwrite(data, overwrite_filter=EqualTo("upload_date", day.isoformat()))
     held = trino(f"SELECT count(*) FROM {CAT}.raw.pos_uploads WHERE upload_date = DATE '{day}'")[0][0]
     out = {"upload_date": str(day), "events": data.num_rows, "in_table": held}

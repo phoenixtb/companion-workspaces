@@ -39,7 +39,8 @@
         }
       ],
       "actions": [
-        "Read:larkspur-lake",
+        "Read:larkspur-lake/warehouse/part10/*",
+        "Read:larkspur-lake/warehouse/gold/daily_store_sales/*",
         "List:larkspur-lake"
       ]
     }

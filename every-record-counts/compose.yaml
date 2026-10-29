@@ -183,6 +183,7 @@ services:
     environment:
       <<: *lab-env
       TRINO_PG_PASSWORD: ${TRINO_PG_PASSWORD}   # Part 13's read-only PostgreSQL role
+      GATEWAY_SECRET: ${GATEWAY_SECRET}         # Part 23: Trino's own Polaris principal for the governed catalog
     ports:
       - "8080:8080"
     volumes:
@@ -192,6 +193,8 @@ services:
       - ./trino/catalog/oltp.properties:/etc/trino/catalog/oltp.properties:ro   # PostgreSQL (Part 13)
       - ./trino/catalog/lakehouse_pipeline.properties:/etc/trino/catalog/lakehouse_pipeline.properties:ro   # dbt (Part 17)
       - ./trino/catalog/lakehouse_dev.properties:/etc/trino/catalog/lakehouse_dev.properties:ro   # dbt dev and CI (Part 18)
+      - ./trino/catalog/governed.properties:/etc/trino/catalog/governed.properties:ro   # people, masked by OPA (Part 23)
+      - ./trino/access-control.properties:/etc/trino/access-control.properties:ro   # every operation asks OPA (Part 23)
     mem_limit: 3g   # the image sizes the JVM heap at 80% of this
     healthcheck:
       test: ["CMD", "/usr/lib/trino/bin/health-check"]
@@ -199,6 +202,29 @@ services:
       retries: 60
     depends_on:
       polaris-setup: { condition: service_completed_successfully }
+      opa: { condition: service_started }
+
+  # Part 23: Open Policy Agent decides every Trino operation, row filter and column mask (opa/policy/trino.rego).
+  # It starts with Trino (profile batch) because Trino refuses every query when OPA can't be reached.
+  opa:
+    image: ${OPA_IMAGE}
+    profiles: [batch, governance]
+    command:
+      - run
+      - --server
+      - --addr=0.0.0.0:8181
+      - --watch                          # reload the policy and data files when they change
+      - --set=decision_logs.console=true # every decision, with its input, on stdout: the audit trail
+      - /policy
+      - /data
+    volumes:
+      - ./opa/policy:/policy:ro
+      - ./opa/larkspur:/data/larkspur:ro   # users and the classification (exported from the tables)
+    ports:
+      - "8281:8181"   # 8181 on the host is Polaris
+    environment:
+      GOMEMLIMIT: 96MiB
+    mem_limit: 128m
 
   spark:
     build:

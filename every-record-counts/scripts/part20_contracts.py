@@ -47,6 +47,9 @@ def land() -> int:
     con = raw_views()
     started = time.monotonic()
     data = con.sql("SELECT * FROM raw_clickstream").to_arrow_table()
+    from scripts import part23_privacy as privacy  # Part 23: people who asked to be erased stay erased
+
+    data = privacy.suppress(data, delete={"anonymous_id": "anonymous_id", "user_id": "customer_id"})
     cat9.drop_table("raw", "clickstream_events", cat9.token())  # re-runs start from an empty table
     table = cat.create_table(EVENTS, schema=data.schema)
     with table.update_spec() as spec:

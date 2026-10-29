@@ -23,10 +23,10 @@ up-core: env  ## start storage, catalog and Postgres
 	$(COMPOSE) $(CORE) run --rm --no-deps polaris-setup
 
 up-batch: up-core  ## start core plus Trino and Spark
-	$(COMPOSE) $(BATCH) up -d --wait --build --no-deps trino spark
+	$(COMPOSE) $(BATCH) up -d --wait --build --no-deps opa trino spark
 
-up-trino: up-core  ## start core plus Trino only (Part 1)
-	$(COMPOSE) $(BATCH) up -d --wait --no-deps trino
+up-trino: up-core  ## start core plus Trino only (Part 1), with OPA deciding its access (Part 23)
+	$(COMPOSE) $(BATCH) up -d --wait --no-deps opa trino
 
 up-spark: up-core  ## start core plus Spark only (Part 7: Spark and Trino don't fit in memory together)
 	$(COMPOSE) $(BATCH) up -d --wait --build --no-deps spark
@@ -41,8 +41,8 @@ up-stream: up-core  ## start core plus Kafka and Kafka Connect with Debezium (Pa
 up-orchestrate: up-trino  ## start core, Trino and Airflow 3.3 (api-server on :8090, scheduler, dag-processor; Part 19) + OTel collector (Part 22)
 	$(COMPOSE) $(ORCH) up -d --wait --build otel-collector airflow-apiserver airflow-scheduler airflow-dag-processor
 
-stop-batch:  ## stop Trino and Spark, keep core running
-	$(COMPOSE) $(BATCH) stop trino spark
+stop-batch:  ## stop Trino, OPA and Spark, keep core running
+	$(COMPOSE) $(BATCH) stop trino opa spark
 
 stop-olap:  ## stop ClickHouse, keep its data volume
 	$(COMPOSE) $(ALL) stop clickhouse

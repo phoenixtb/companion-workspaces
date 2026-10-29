@@ -1,0 +1,138 @@
+{
+ "_review": "Reviewed by the data platform team from `scripts.part23_privacy discover` (Part 23). Levels: personal | none. Column classes: direct (masked to NULL), identifier (pseudonymised), quasi (coarsened). row-scope: the column analysts are filtered on.",
+ "tables": {
+  "customer.dim_customer": {
+   "level": "personal",
+   "row-scope": "country",
+   "columns": {
+    "customer_id": "identifier",
+    "loyalty_id": "identifier",
+    "full_name": "direct",
+    "email": "direct",
+    "phone": "direct",
+    "address_line": "direct",
+    "postcode": "quasi"
+   }
+  },
+  "gold.daily_controls": {
+   "level": "none"
+  },
+  "gold.daily_sales_by_format": {
+   "level": "none"
+  },
+  "gold.daily_store_sales": {
+   "level": "none"
+  },
+  "gold.dim_date": {
+   "level": "none"
+  },
+  "gold.dim_fx_rate": {
+   "level": "none"
+  },
+  "gold.dim_product": {
+   "level": "none"
+  },
+  "gold.dim_promotion": {
+   "level": "none"
+  },
+  "gold.dim_sale_profile": {
+   "level": "none"
+  },
+  "gold.dim_store": {
+   "level": "none"
+  },
+  "gold.dim_supplier": {
+   "level": "none"
+  },
+  "gold.fct_basket": {
+   "level": "none"
+  },
+  "gold.fct_po_line": {
+   "level": "none"
+  },
+  "gold.fct_pos_line": {
+   "level": "none"
+  },
+  "gold.fct_refund": {
+   "level": "none"
+  },
+  "gold.fct_sales_line": {
+   "level": "none"
+  },
+  "gold.fct_stock_adjustment": {
+   "level": "none"
+  },
+  "gold.fct_stock_daily": {
+   "level": "none"
+  },
+  "gold.restatements": {
+   "level": "none"
+  },
+  "gold.rpt_daily_net_revenue": {
+   "level": "none"
+  },
+  "gold.rpt_daily_net_revenue_v2": {
+   "level": "none"
+  },
+  "gold.slo_results": {
+   "level": "none"
+  },
+  "gold.web_sessions": {
+   "level": "personal",
+   "row-scope": "country",
+   "columns": {
+    "anonymous_id": "identifier",
+    "session_id": "identifier",
+    "user_agent": "quasi"
+   }
+  },
+  "raw.clickstream_events": {
+   "level": "personal",
+   "row-scope": "country",
+   "columns": {
+    "anonymous_id": "identifier",
+    "user_id": "identifier",
+    "user_agent": "quasi"
+   }
+  },
+  "raw.customers": {
+   "level": "personal",
+   "row-scope": "country",
+   "columns": {
+    "customer_id": "identifier",
+    "loyalty_id": "identifier",
+    "full_name": "direct",
+    "email": "direct",
+    "phone": "direct",
+    "address_line": "direct",
+    "postcode": "quasi"
+   }
+  },
+  "raw.orders": {
+   "level": "personal",
+   "row-scope": "country",
+   "columns": {
+    "customer_id": "identifier"
+   }
+  },
+  "raw.orders_changes": {
+   "level": "personal",
+   "row-scope": "country",
+   "columns": {
+    "customer_id": "identifier"
+   }
+  },
+  "raw.pos_events": {
+   "level": "personal",
+   "columns": {
+    "loyalty_id": "identifier"
+   }
+  },
+  "raw.pos_uploads": {
+   "level": "personal",
+   "columns": {
+    "loyalty_id": "identifier"
+   }
+  }
+ }
+}

@@ -70,6 +70,8 @@ LANDED = {
     "suppliers": "SELECT * FROM raw_suppliers",
     "po_lines": "SELECT * FROM raw_po_lines",
 }
+# Part 23: identifiers erasure tombstones in these tables (the records stay: they're sales)
+SUPPRESSED = {"pos_uploads": {"loyalty_id": "loyalty_id"}, "orders": {"customer_id": "customer_id"}}
 FALLBACK = {  # only if Part 16's CDC replicas are missing: the 5 October extract (same Q3 rows, Part 16 step 1)
     "orders": "SELECT * EXCLUDE (snapshot_date) FROM raw_orders",
     "refunds": "SELECT * EXCLUDE (snapshot_date) FROM raw_refunds",
@@ -129,6 +131,10 @@ def land(only: list[str] | None = None) -> dict[str, int]:
             continue
         started = time.monotonic()
         data: pa.Table = con.sql(query).to_arrow_table()
+        if name in SUPPRESSED:  # Part 23: people who asked to be erased stay erased when raw is landed again
+            from scripts import part23_privacy as privacy
+
+            data = privacy.suppress(data, tombstone=SUPPRESSED[name])
         cat9.drop_table("raw", name, tok)  # re-runs start from an empty table
         table = cat.create_table(f"raw.{name}", schema=data.schema)
         table.append(data)

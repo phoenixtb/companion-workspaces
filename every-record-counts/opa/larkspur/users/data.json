@@ -1,0 +1,10 @@
+{
+  "platform": ["lab", "tests", "rohan", "dbt", "pipeline", "analyst"],
+  "privacy": ["dpo", "erasure"],
+  "developers": ["dbt_dev"],
+  "analysts": {
+    "analyst_gb": {"countries": ["GB"]},
+    "analyst_in": {"countries": ["IN"]},
+    "analyst_sg": {"countries": ["SG"]}
+  }
+}
