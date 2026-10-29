@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 rootProject.name = "every-record-counts"
 
 include("iceberg-api-demo")   // Part 7
+include("kafka-backbone")     // Part 27

@@ -7,7 +7,7 @@ STREAM := --profile core --profile stream
 ORCH := --profile core --profile batch --profile orchestrate
 LINEAGE := --profile core --profile lineage
 
-.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-flink stop-flink flink-sql up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
+.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-backbone iceberg-sink up-flink stop-flink flink-sql up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -41,14 +41,21 @@ up-stream: up-core  ## start core plus Kafka and Kafka Connect with Debezium (Pa
 up-orchestrate: up-trino  ## start core, Trino and Airflow 3.3 (api-server on :8090, scheduler, dag-processor; Part 19) + OTel collector (Part 22)
 	$(COMPOSE) $(ORCH) up -d --wait --build otel-collector airflow-apiserver airflow-scheduler airflow-dag-processor
 
+iceberg-sink:  ## build the Iceberg Kafka Connect sink 1.12.0 from source into build/ (Part 27; needs JAVA_HOME = JDK 17 or 21)
+	./kafka/iceberg-sink/build.sh
+
+up-backbone: up-core iceberg-sink  ## start core plus Kafka, Apicurio Registry and Connect with the Iceberg sink (Part 27)
+	$(COMPOSE) $(STREAM) run --rm --no-deps apicurio-db
+	$(COMPOSE) $(STREAM) up -d --wait --no-deps kafka apicurio connect
+
 stop-batch:  ## stop Trino, OPA and Spark, keep core running
 	$(COMPOSE) $(BATCH) stop trino opa spark
 
 stop-olap:  ## stop ClickHouse, keep its data volume
 	$(COMPOSE) $(ALL) stop clickhouse
 
-stop-stream:  ## stop Kafka, Connect and Flink, keep their data volume
-	$(COMPOSE) $(STREAM) stop flink-taskmanager flink-jobmanager connect kafka
+stop-stream:  ## stop Kafka, Connect, Apicurio and Flink, keep their data volume
+	$(COMPOSE) $(STREAM) stop flink-taskmanager flink-jobmanager connect apicurio kafka
 
 up-flink: env  ## start Kafka and a Flink 2.2 session cluster (JobManager + one TaskManager, UI on :8081; Part 26)
 	$(COMPOSE) $(STREAM) up -d --wait --build --no-deps kafka flink-jobmanager flink-taskmanager

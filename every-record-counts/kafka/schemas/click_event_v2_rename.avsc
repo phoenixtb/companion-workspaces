@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "name": "ClickEvent",
+  "namespace": "com.larkspur.clickstream",
+  "doc": "v2 as the web team first wrote it: page renamed to page_path. The registry refuses it. One app or web event. event_ts is the device's clock, UTC.",
+  "fields": [
+    {"name": "event_id", "type": "string"},
+    {"name": "event_type", "type": "string"},
+    {"name": "event_ts", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "anonymous_id", "type": "string"},
+    {"name": "user_id", "type": ["null", "string"], "default": null},
+    {"name": "platform", "type": "string"},
+    {"name": "user_agent", "type": "string"},
+    {"name": "country", "type": "string"},
+    {"name": "page_path", "type": "string"},
+    {"name": "sku", "type": ["null", "string"], "default": null},
+    {"name": "order_id", "type": ["null", "string"], "default": null},
+    {"name": "app_version", "type": ["null", "string"], "default": null},
+    {"name": "consent", "type": ["null", {"type": "record", "name": "Consent", "fields": [
+      {"name": "analytics", "type": "boolean"},
+      {"name": "ads", "type": "boolean"}
+    ]}], "default": null}
+  ]
+}

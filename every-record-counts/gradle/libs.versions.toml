@@ -4,6 +4,10 @@
 iceberg = "1.12.0"
 hadoop = "3.5.0"      # parquet-hadoop (under iceberg-parquet) needs Hadoop's Configuration class at runtime
 slf4j = "2.0.20"
+kafka = "4.4.0"       # Part 27: the clients match the broker
+apicurio = "3.3.3"    # Part 27: serdes match the registry
+avro = "1.12.2"       # what Apicurio 3.3.3 builds against
+jackson = "2.21.5"   # the version Apicurio 3.3.3 brings
 
 [libraries]
 iceberg-core = { module = "org.apache.iceberg:iceberg-core", version.ref = "iceberg" }
@@ -14,3 +18,8 @@ iceberg-aws = { module = "org.apache.iceberg:iceberg-aws", version.ref = "iceber
 hadoop-client-api = { module = "org.apache.hadoop:hadoop-client-api", version.ref = "hadoop" }
 hadoop-client-runtime = { module = "org.apache.hadoop:hadoop-client-runtime", version.ref = "hadoop" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
+apicurio-avro-serde = { module = "io.apicurio:apicurio-registry-avro-serde-kafka", version.ref = "apicurio" }
+apicurio-sdk = { module = "io.apicurio:apicurio-registry-java-sdk", version.ref = "apicurio" }
+avro = { module = "org.apache.avro:avro", version.ref = "avro" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }

@@ -1,0 +1,32 @@
+{
+  "type": "record",
+  "name": "PosBasketEvent",
+  "namespace": "com.larkspur.pos",
+  "doc": "One completed till basket. Money in integer minor units of `currency`; event_ts is the till's clock, uploaded_at the upload's. UTC.",
+  "fields": [
+    {"name": "event_id", "type": "string", "doc": "unique per send; a till re-send gets a new one"},
+    {"name": "event_type", "type": "string"},
+    {"name": "schema_version", "type": "int"},
+    {"name": "store_id", "type": "string"},
+    {"name": "till_id", "type": "string"},
+    {"name": "basket_id", "type": "string", "doc": "the business key: re-sends repeat it"},
+    {"name": "event_ts", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "uploaded_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "currency", "type": "string"},
+    {"name": "loyalty_id", "type": ["null", "string"], "default": null},
+    {"name": "lines", "type": {"type": "array", "items": {
+      "type": "record", "name": "BasketLine", "fields": [
+        {"name": "line_no", "type": "int"},
+        {"name": "sku", "type": "string"},
+        {"name": "qty", "type": "int"},
+        {"name": "unit_price_minor", "type": "long"},
+        {"name": "discount_minor", "type": "long"},
+        {"name": "promo_id", "type": ["null", "string"], "default": null}
+      ]}}},
+    {"name": "tenders", "type": {"type": "array", "items": {
+      "type": "record", "name": "Tender", "fields": [
+        {"name": "type", "type": "string"},
+        {"name": "amount_minor", "type": "long"}
+      ]}}}
+  ]
+}

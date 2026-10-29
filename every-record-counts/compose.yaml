@@ -274,7 +274,7 @@ services:
     depends_on:
       polaris-setup: { condition: service_completed_successfully }
 
-  # ---------- stream: Kafka and Kafka Connect with Debezium (Part 16); Flink (Part 26); a registry joins in Part 27 ----------
+  # ---------- stream: Kafka, Kafka Connect with Debezium (Part 16) and the Iceberg sink (Part 27) ----------
   kafka:
     # One node that is both broker and KRaft controller. Two client listeners: kafka:29092 for containers,
     # localhost:9092 for the host. Setting any KAFKA_* config switches off the image's defaults, so all are here.
@@ -329,6 +329,18 @@ services:
       CONNECT_CONFIG_PROVIDERS_ENV_CLASS: org.apache.kafka.common.config.provider.EnvVarConfigProvider
       DEBEZIUM_DB_PASSWORD: ${DEBEZIUM_DB_PASSWORD}
       HEAP_OPTS: -Xms256m -Xmx768m   # the image passes this on as KAFKA_HEAP_OPTS
+      # Part 27: the image's Apicurio converters (linked into the plugins under /kafka/connect), and a second plugin
+      # directory for the Iceberg sink, built from source by kafka/iceberg-sink/build.sh and mounted read-only.
+      ENABLE_APICURIO_CONVERTERS: "true"
+      CONNECT_PLUGIN_PATH: /kafka/connect,/kafka/iceberg-plugins
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}   # the sink writes data files to SeaweedFS with the lab's static keys
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      POLARIS_CREDENTIAL: ${POLARIS_CLIENT_ID}:${POLARIS_CLIENT_SECRET}
+      # How long an idle sink task waits in poll() (Connect: until the next offset commit). The Iceberg sink answers
+      # its coordinator only between polls, so this, not the sink's commit interval, paces commits on a quiet topic.
+      OFFSET_FLUSH_INTERVAL_MS: ${CONNECT_OFFSET_FLUSH_MS:-60000}   # the image's default
+    volumes:
+      - ./build/iceberg-kafka-connect-runtime-${ICEBERG_VERSION}:/kafka/iceberg-plugins/iceberg-kafka-connect-runtime:ro
     ports:
       - "8083:8083"
     mem_limit: 1280m
@@ -341,10 +353,53 @@ services:
       kafka: { condition: service_healthy }
       postgres: { condition: service_healthy }
 
+  # ---------- stream: Apicurio Registry 3.3 (Part 27), schemas stored in the lab PostgreSQL ----------
+  apicurio-db:
+    # One-shot: the registry's database and role in the lab PostgreSQL, created if missing.
+    image: ${POSTGRES_IMAGE}
+    profiles: [stream]
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      APICURIO_DB_PASSWORD: ${APICURIO_DB_PASSWORD}
+    entrypoint: ["/bin/bash", "/apicurio-db.sh"]
+    volumes:
+      - ./postgres/apicurio-db.sh:/apicurio-db.sh:ro
+    mem_limit: 128m
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  apicurio:
+    # Core API /apis/registry/v3; Confluent-compatible API /apis/ccompat/v7 (what Flink's avro-confluent format calls).
+    # The default storage is an in-memory H2 database that forgets every schema on restart; this one uses PostgreSQL.
+    image: ${APICURIO_IMAGE}
+    profiles: [stream]
+    environment:
+      APICURIO_STORAGE_KIND: sql
+      APICURIO_STORAGE_SQL_KIND: postgresql
+      APICURIO_DATASOURCE_URL: jdbc:postgresql://postgres:5432/apicurio
+      APICURIO_DATASOURCE_USERNAME: apicurio
+      APICURIO_DATASOURCE_PASSWORD: ${APICURIO_DB_PASSWORD}
+      APICURIO_DATASOURCE_JDBC_INITIAL_SIZE: "2"   # the defaults open 20 connections at start (max 100)
+      APICURIO_DATASOURCE_JDBC_MIN_SIZE: "2"
+      APICURIO_DATASOURCE_JDBC_MAX_SIZE: "10"
+      APICURIO_REST_DELETION_ARTIFACT_ENABLED: "true"   # off by default; the lab's reset deletes its artifacts
+      JAVA_OPTS_APPEND: -Xms128m -Xmx320m   # the image's run-java.sh otherwise sizes the heap at 80% of the limit
+    ports:
+      - "8085:8080"   # REST APIs and the UI's backend (8080 on the host is Trino)
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs localhost:8080/apis/registry/v3/system/info > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+    depends_on:
+      apicurio-db: { condition: service_completed_successfully }
+
   # ---------- stream: Flink 2.2 session cluster (Part 26): one JobManager, one TaskManager with 2 slots ----------
-  # The official image with Flink SQL's Kafka connector added (flink/Dockerfile). FLINK_PROPERTIES lines are written
-  # into /opt/flink/conf/config.yaml at start (Flink 2.x reads config.yaml; flink-conf.yaml is gone). Java 17 (Flink
-  # 2.2 doesn't support Java 25). `make up-flink` starts these with Kafka only. The keys:
+  # The official image with Flink SQL's Kafka connector (Part 26) and avro-confluent format (Part 27) added
+  # (flink/Dockerfile). FLINK_PROPERTIES lines are written into /opt/flink/conf/config.yaml at start (Flink 2.x reads
+  # config.yaml; flink-conf.yaml is gone). Java 17 (Flink 2.2 doesn't support Java 25). `make up-flink` starts these
+  # with Kafka only. The keys:
   #   jobmanager.rpc.address / rest.address  where the TaskManager and the SQL client find the JobManager
   #   jobmanager.memory.process.size 1024m   the JobManager JVM's whole budget (448 MB heap); mem_limit 1280m above it
   #   taskmanager.memory.process.size 1536m  the TaskManager's whole budget, incl. managed memory; mem_limit 1792m
@@ -355,7 +410,7 @@ services:
       context: ./flink
       args:
         FLINK_IMAGE: ${FLINK_IMAGE}
-    image: every-record-counts/flink:2.2.1-java17-kafka-5.0.0
+    image: every-record-counts/flink:2.2.1-java17-kafka-5.0.0-avro
     profiles: [stream]
     command: jobmanager
     environment:
@@ -376,7 +431,7 @@ services:
       retries: 40
 
   flink-taskmanager:
-    image: every-record-counts/flink:2.2.1-java17-kafka-5.0.0
+    image: every-record-counts/flink:2.2.1-java17-kafka-5.0.0-avro
     profiles: [stream]
     command: taskmanager
     environment:
