@@ -3,6 +3,10 @@
 The module fixture (about 2.5 minutes with `make up-orchestrate`; needs Part 18's production models) partitions
 raw.pos_uploads if needed, unpauses both DAGs, then runs a two-day backfill (10 and 11 September) through Airflow, with
 `--reprocess-behavior completed` so it re-runs days that already ran: re-running must change nothing.
+
+The backfill's publish triggers the maintenance DAG, whose `optimize` merges the unpartitioned facts' one-day files into
+one: Part 24 measures pruning on those files. So the fixture tags each maintained table's current snapshot (the tag
+survives the run's snapshot expiry), rolls the tables back to it at the end and checks rows and checksums are unchanged.
 """
 
 import json
@@ -34,6 +38,7 @@ pytestmark = [needs_batch, needs_airflow]
 
 DAG_ID, MAINT = "larkspur_daily_revenue", "larkspur_lake_maintenance"
 DAYS = (date(2026, 9, 10), date(2026, 9, 11))
+KEEP = "part19_test_restore"  # tag holding each maintained table's snapshot from before the test
 
 
 def airflow(*args: str) -> str:
@@ -41,37 +46,71 @@ def airflow(*args: str) -> str:
     return subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=True).stdout
 
 
-@pytest.fixture(scope="module")
-def run() -> dict:
-    lab.setup()
-    airflow("variables", "set", "lake_retention", "1h")
-    for dag in (MAINT, DAG_ID):
-        airflow("dags", "unpause", dag)
-    started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    before = lab.fingerprint(DAYS[0])
-    airflow(
-        "backfill", "create", "--dag-id", DAG_ID, "--from-date", str(DAYS[0]), "--to-date", str(DAYS[1]),
-        "--reprocess-behavior", "completed", "--max-active-runs", "1",
-    )  # fmt: skip
-    time.sleep(10)
-    deadline = time.monotonic() + 900
-    while time.monotonic() < deadline:
-        runs = lab.api(f"/dags/{DAG_ID}/dagRuns?limit=100")["dag_runs"]
-        mine = [r for r in runs if r["logical_date"][:10] in {str(d) for d in DAYS}]
-        if mine and all(r["state"] in ("success", "failed") for r in mine):
-            break
-        time.sleep(10)
+def contents(table: str) -> tuple:
+    """Row count and an order-insensitive checksum of every column."""
+    cols = ", ".join(f'"{r[0]}"' for r in lab.trino(f"SHOW COLUMNS FROM {lab.CAT}.{table}"))
+    return tuple(lab.trino(f"SELECT count(*), checksum(ROW({cols})) FROM {lab.CAT}.{table}")[0])
+
+
+def pin_maintained() -> dict[str, tuple[int, tuple]]:
+    cat = cat9.pyiceberg("root", vended=False)
+    pinned = {}
+    for table in lab.MAINTAINED:
+        t = cat.load_table(table)
+        if KEEP in t.metadata.refs:  # left by an interrupted run
+            t.manage_snapshots().remove_tag(KEEP).commit()
+            t = cat.load_table(table)
+        snapshot = t.current_snapshot().snapshot_id
+        t.manage_snapshots().create_tag(snapshot, KEEP).commit()
+        pinned[table] = (snapshot, contents(table))
+    return pinned
+
+
+def restore_maintained(pinned: dict[str, tuple[int, tuple]]) -> None:
     lab.wait([MAINT])
-    events = lab.api(f"/assets/events?limit=200&order_by=-timestamp&timestamp_gte={started}")["asset_events"]
-    maint = lab.api(f"/dags/{MAINT}/dagRuns?limit=200")["dag_runs"]
-    return {
-        "runs": mine,
-        "before": before,
-        "after": lab.fingerprint(DAYS[0]),
-        "events": events,
-        "maintenance": [r for r in maint if (r.get("start_date") or "") >= started],
-        "q3": lab.q3(),
-    }
+    cat = cat9.pyiceberg("root", vended=False)
+    for table, (snapshot, before) in pinned.items():
+        if cat.load_table(table).current_snapshot().snapshot_id != snapshot:
+            lab.trino(f"ALTER TABLE {lab.CAT}.{table} EXECUTE rollback_to_snapshot({snapshot})")
+        cat.load_table(table).manage_snapshots().remove_tag(KEEP).commit()
+        assert contents(table) == before, table
+
+
+@pytest.fixture(scope="module")
+def run():
+    lab.setup()
+    pinned = pin_maintained()
+    try:
+        airflow("variables", "set", "lake_retention", "1h")
+        for dag in (MAINT, DAG_ID):
+            airflow("dags", "unpause", dag)
+        started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        before = lab.fingerprint(DAYS[0])
+        airflow(
+            "backfill", "create", "--dag-id", DAG_ID, "--from-date", str(DAYS[0]), "--to-date", str(DAYS[1]),
+            "--reprocess-behavior", "completed", "--max-active-runs", "1",
+        )  # fmt: skip
+        time.sleep(10)
+        deadline = time.monotonic() + 900
+        while time.monotonic() < deadline:
+            runs = lab.api(f"/dags/{DAG_ID}/dagRuns?limit=100")["dag_runs"]
+            mine = [r for r in runs if r["logical_date"][:10] in {str(d) for d in DAYS}]
+            if mine and all(r["state"] in ("success", "failed") for r in mine):
+                break
+            time.sleep(10)
+        lab.wait([MAINT])
+        events = lab.api(f"/assets/events?limit=200&order_by=-timestamp&timestamp_gte={started}")["asset_events"]
+        maint = lab.api(f"/dags/{MAINT}/dagRuns?limit=200")["dag_runs"]
+        yield {
+            "runs": mine,
+            "before": before,
+            "after": lab.fingerprint(DAYS[0]),
+            "events": events,
+            "maintenance": [r for r in maint if (r.get("start_date") or "") >= started],
+            "q3": lab.q3(),
+        }
+    finally:
+        restore_maintained(pinned)
 
 
 def test_dags_parse_without_errors():
