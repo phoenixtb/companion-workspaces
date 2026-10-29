@@ -16,6 +16,7 @@ they run. `load` needs Part 8's staged gold file (`uv run python scripts/duck.py
 import argparse
 import base64
 import json
+import os
 import re
 import subprocess
 import sys
@@ -30,13 +31,15 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 ROOT = Path(__file__).resolve().parents[1]
-POLARIS = "http://localhost:8181/api"
+# Endpoints as seen from the host; containers (Airflow, Part 19) set LAB_* to the compose service names.
+POLARIS = os.environ.get("LAB_POLARIS_URL", "http://localhost:8181/api")
 CATALOG = "larkspur"
 NAMESPACES = ["raw", "silver", "gold"]
 RAW_DAY = "2026-09-30"  # one upload day of raw POS events becomes raw.pos_events
 GOLD_SOURCE = ROOT / "data/lab/part08/daily_store_sales.parquet"  # Part 8's gold table, staged by DuckDB
 PART9_TABLES = ["raw.pos_events", "gold.daily_store_sales"]
-S3 = "http://localhost:8333"
+S3 = os.environ.get("LAB_S3_ENDPOINT", "http://localhost:8333")
+TRINO = os.environ.get("LAB_TRINO_URL", "http://localhost:8080")
 
 # Lab-only principals. Polaris generates random credentials; `setup` resets them to these fixed values so that
 # Trino's catalog file (trino/catalog/lakehouse_analyst.properties) can name them.
@@ -241,9 +244,7 @@ def duck(principal: str, key: str, secret: str) -> duckdb.DuckDBPyConnection:
 
 def trino(sql: str) -> tuple[list, str | None]:
     """Run one Trino statement; return (rows, None) or ([], the error message with its causes)."""
-    req = urllib.request.Request(
-        "http://localhost:8080/v1/statement", data=sql.encode(), headers={"X-Trino-User": "lab"}
-    )
+    req = urllib.request.Request(f"{TRINO}/v1/statement", data=sql.encode(), headers={"X-Trino-User": "lab"})
     page, rows = json.load(urllib.request.urlopen(req)), []
     while True:
         rows += page.get("data", [])

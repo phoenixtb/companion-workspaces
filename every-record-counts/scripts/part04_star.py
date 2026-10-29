@@ -10,6 +10,7 @@ placeholders) and the delivery milestone (an update of the accumulating snapshot
 """
 
 import argparse
+import os
 import tempfile
 import time
 from pathlib import Path
@@ -27,7 +28,10 @@ def fs():
     return s3fs.S3FileSystem(
         key="larkspur",
         secret="larkspur-lab-secret",
-        client_kwargs={"endpoint_url": "http://localhost:8333", "region_name": "us-east-1"},
+        client_kwargs={
+            "endpoint_url": os.environ.get("LAB_S3_ENDPOINT", "http://localhost:8333"),
+            "region_name": "us-east-1",
+        },
     )
 
 

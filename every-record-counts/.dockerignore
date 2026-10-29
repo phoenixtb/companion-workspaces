@@ -1,0 +1,5 @@
+# Only the Airflow image (Part 19) builds from this folder; it needs the lab's dependency files and nothing else.
+*
+!pyproject.toml
+!uv.lock
+!.python-version

@@ -11,6 +11,49 @@ x-lab-env: &lab-env
   POLARIS_CLIENT_ID: ${POLARIS_CLIENT_ID}
   POLARIS_CLIENT_SECRET: ${POLARIS_CLIENT_SECRET}
 
+# ---------- orchestrate (Part 19): Airflow 3.3, trimmed from the official docker-compose.yaml ----------
+# The official file runs CeleryExecutor with Redis, a worker, a triggerer, its own PostgreSQL and FAB login. This lab
+# trim (ours, not Airflow's): LocalExecutor (tasks run as subprocesses of the scheduler), no Redis, no worker, no
+# triggerer (nothing here defers), the lab PostgreSQL as metadata database (its own database and role), and the
+# simple auth manager with authentication switched off. Development only.
+x-airflow: &airflow
+  build:
+    context: .
+    dockerfile: airflow/Dockerfile
+    args:
+      AIRFLOW_IMAGE: ${AIRFLOW_IMAGE}
+      UV_IMAGE: ${UV_IMAGE}
+  image: every-record-counts/airflow:3.3.2-lab
+  profiles: [orchestrate]
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__PARALLELISM: "4"                 # task processes at once (default 32): each dbt run is ~0.3 GB
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "true"   # no login: lab only
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}   # one secret for every component, or tasks can't call the API
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD}@postgres:5432/airflow
+    AIRFLOW__DATABASE__SQL_ALCHEMY_POOL_SIZE: "3"   # per process (default 5); the lab PostgreSQL also serves Polaris
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    # What the lab's commands need inside the containers: compose service names instead of localhost.
+    LAB_POLARIS_URL: http://polaris:8181/api
+    LAB_S3_ENDPOINT: http://seaweedfs:8333
+    LAB_TRINO_URL: http://trino:8080
+    LAB_TRINO_HOST: trino
+    DBT_PROFILES_DIR: /opt/lab/dbt/larkspur
+    DBT_TARGET_PATH: /tmp/dbt/target   # the lab folder is mounted read-only
+    DBT_LOG_PATH: /tmp/dbt/logs
+    DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+    PYTHONDONTWRITEBYTECODE: "1"
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags:ro
+    - .:/opt/lab:ro          # the lab's scripts, SQL, dbt project and raw files: what the tasks run
+    - airflow-logs:/opt/airflow/logs
+  depends_on: &airflow-depends
+    airflow-init: { condition: service_completed_successfully }
+
 services:
   # ---------- core: object storage, catalog, OLTP database ----------
   seaweedfs:
@@ -253,9 +296,65 @@ services:
       kafka: { condition: service_healthy }
       postgres: { condition: service_healthy }
 
+  # ---------- orchestrate: Airflow (Part 19) ----------
+  airflow-db:
+    # One-shot: the metadata database and its role in the lab PostgreSQL, created if missing (also on old volumes).
+    image: ${POSTGRES_IMAGE}
+    profiles: [orchestrate]
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+    entrypoint: ["/bin/bash", "/airflow-db.sh"]
+    volumes:
+      - ./postgres/airflow-db.sh:/airflow-db.sh:ro
+    mem_limit: 128m
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  airflow-init:
+    <<: *airflow
+    command: ["bash", "-c", "airflow db migrate && airflow pools set lakehouse 1 'Lake writes through the lab Trino and PyIceberg: one at a time'"]
+    mem_limit: 1g
+    depends_on:
+      airflow-db: { condition: service_completed_successfully }
+
+  airflow-apiserver:
+    <<: *airflow
+    command: api-server
+    ports:
+      - "8090:8080"   # the UI and REST API (8080 on the host is Trino)
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 10s
+      retries: 30
+
+  airflow-scheduler:
+    <<: *airflow
+    command: scheduler
+    mem_limit: 1536m   # the LocalExecutor's task processes (dbt, PyIceberg) live inside this container
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8974/health"]
+      interval: 10s
+      retries: 30
+    depends_on:
+      <<: *airflow-depends
+      airflow-apiserver: { condition: service_healthy }
+
+  airflow-dag-processor:
+    <<: *airflow
+    command: dag-processor
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
+      interval: 15s
+      timeout: 15s
+      retries: 20
+
 volumes:
   seaweedfs-data:
   postgres-data:
   clickhouse-data:
   kafka-data:
   spark-state:
+  airflow-logs:

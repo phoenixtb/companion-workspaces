@@ -6,7 +6,7 @@ larkspur:
       type: trino                    # the dbt-trino adapter
       method: none                   # no authentication in the lab; the catalog carries the identity
       user: dbt
-      host: localhost
+      host: "{{ env_var('LAB_TRINO_HOST', 'localhost') }}"   # Part 19: `trino` inside the Airflow containers
       port: 8080
       http_scheme: http
       database: lakehouse_pipeline   # in dbt-trino, the Trino catalog
@@ -17,7 +17,7 @@ larkspur:
       type: trino
       method: none
       user: dbt
-      host: localhost
+      host: "{{ env_var('LAB_TRINO_HOST', 'localhost') }}"
       port: 8080
       http_scheme: http
       database: lakehouse_dev        # the `developer` principal: may create and drop tables only in `dev`

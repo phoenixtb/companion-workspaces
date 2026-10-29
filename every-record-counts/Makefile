@@ -2,10 +2,11 @@
 COMPOSE := docker compose
 CORE := --profile core
 BATCH := --profile core --profile batch
-ALL := --profile core --profile batch --profile olap --profile stream
+ALL := --profile core --profile batch --profile olap --profile stream --profile orchestrate
 STREAM := --profile core --profile stream
+ORCH := --profile core --profile batch --profile orchestrate
 
-.PHONY: dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream stop-batch stop-olap stop-stream down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
+.PHONY: dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-orchestrate airflow stop-batch stop-olap stop-stream stop-orchestrate down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -36,6 +37,9 @@ up-olap: up-core  ## start core plus ClickHouse (Part 13; stop Spark first, they
 up-stream: up-core  ## start core plus Kafka and Kafka Connect with Debezium (Part 16)
 	$(COMPOSE) $(STREAM) up -d --wait --no-deps kafka connect
 
+up-orchestrate: up-trino  ## start core, Trino and Airflow 3.3 (api-server on :8090, scheduler, dag-processor; Part 19)
+	$(COMPOSE) $(ORCH) up -d --wait --build airflow-apiserver airflow-scheduler airflow-dag-processor
+
 stop-batch:  ## stop Trino and Spark, keep core running
 	$(COMPOSE) $(BATCH) stop trino spark
 
@@ -44,6 +48,12 @@ stop-olap:  ## stop ClickHouse, keep its data volume
 
 stop-stream:  ## stop Kafka and Connect, keep their data volume
 	$(COMPOSE) $(STREAM) stop connect kafka
+
+airflow:  ## an Airflow CLI command in the scheduler container, e.g. make airflow CMD="dags list" (Part 19)
+	$(COMPOSE) $(ORCH) exec -T airflow-scheduler airflow $(CMD)
+
+stop-orchestrate:  ## stop Airflow, keep its database and logs
+	$(COMPOSE) $(ORCH) stop airflow-apiserver airflow-scheduler airflow-dag-processor
 
 down:  ## stop everything, keep data volumes
 	$(COMPOSE) $(ALL) down
