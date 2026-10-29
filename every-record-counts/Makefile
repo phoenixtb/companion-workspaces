@@ -7,7 +7,7 @@ STREAM := --profile core --profile stream
 ORCH := --profile core --profile batch --profile orchestrate
 LINEAGE := --profile core --profile lineage
 
-.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
+.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-flink stop-flink flink-sql up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -47,8 +47,17 @@ stop-batch:  ## stop Trino, OPA and Spark, keep core running
 stop-olap:  ## stop ClickHouse, keep its data volume
 	$(COMPOSE) $(ALL) stop clickhouse
 
-stop-stream:  ## stop Kafka and Connect, keep their data volume
-	$(COMPOSE) $(STREAM) stop connect kafka
+stop-stream:  ## stop Kafka, Connect and Flink, keep their data volume
+	$(COMPOSE) $(STREAM) stop flink-taskmanager flink-jobmanager connect kafka
+
+up-flink: env  ## start Kafka and a Flink 2.2 session cluster (JobManager + one TaskManager, UI on :8081; Part 26)
+	$(COMPOSE) $(STREAM) up -d --wait --build --no-deps kafka flink-jobmanager flink-taskmanager
+
+stop-flink:  ## stop Flink and Kafka (Part 26)
+	$(COMPOSE) $(STREAM) stop flink-taskmanager flink-jobmanager kafka
+
+flink-sql:  ## run a Flink SQL script with the SQL client in the JobManager, e.g. make flink-sql SQL=part26/windows.sql
+	$(COMPOSE) $(STREAM) exec -T flink-jobmanager ./bin/sql-client.sh -f /opt/flink/lab/sql/$(SQL)
 
 airflow:  ## an Airflow CLI command in the scheduler container, e.g. make airflow CMD="dags list" (Part 19)
 	$(COMPOSE) $(ORCH) exec -T airflow-scheduler airflow $(CMD)

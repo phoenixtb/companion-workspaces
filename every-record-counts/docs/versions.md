@@ -242,3 +242,38 @@ in `pyproject.toml` and `uv.lock`. Re-verified at the start of every season.
 | FOCUS | 1.4 (ratified 2026-06-04) | Part 24 writes FOCUS-shaped rows (a subset of Cost and Usage columns; `x_ModelLabel` custom column). Provider exports on 2026-10-29: AWS Data Exports FOCUS 1.2; Google Cloud BigQuery export (preview, ≤1.2); Microsoft 1.2-preview; Snowflake `FOCUS_COST_USAGE_V1_3` (preview). |
 | dbt test `where` | dbt-core 1.12.6 (lab) | Generic-test `config: where:` renders `var()`, not custom macros ("custom macros … not supported"). Part 24: `fct_sales_line`'s tests and `assert_no_sale_line_lost` take `--vars '{test_since: "YYYY-MM-DD"}'`; without it they test every row. |
 | Trino memory cache and small files | 484 (docs + lab) | Iceberg metadata caching in coordinator memory: `fs.memory-cache.max-size` (default 2% of the node's heap), `fs.memory-cache.max-content-length` (8MB by default, at most 15MB per the file system cache page; the Iceberg connector page says 15MB), `fs.memory-cache.ttl` (1h); off when `fs.cache.enabled` (Alluxio-based file system cache on each node's local disks). In the single-node lab (`node-scheduler.include-coordinator=true`, 2.4 GB heap) it also held the pruned tile's 6.2 MiB of data files (46 GETs first run, 2 after). `parquet.small-file-threshold` 3MB, session `parquet_small_file_threshold`: at `0B` the unpruned tile still read 107.1 MiB of 0.8 MB files. `iceberg.unique-table-location` default true (`<table>-<uuid>` folders); `iceberg.remove-orphan-files.min-retention` default 7d. |
+
+## Season 3 pins (verified 2026-10-30; web and registry checks, nothing pulled or run yet)
+
+Re-verified at the start of Season 3 against release pages, Maven Central, Docker Hub/quay.io and PyPI. Each part
+re-checks what it uses in the lab before writing. Sources are in the research notes (§10 "Season 3 — answered").
+
+| Component | Version / artifact | Notes |
+| --- | --- | --- |
+| Apache Flink | 2.2.1 (`flink:2.2.1-java17`, amd64 + arm64, 663 MB compressed) | Flink 2.3.0 exists, but no released Kafka connector supports it (5.1.0-rc1 with a `-2.3` build was in its release vote on 2026-10-30), and Flink CDC 3.7.0 builds for 1.20 and 2.2 only. Java 17 for Flink jobs. |
+| Flink Kafka connector | `org.apache.flink:flink-connector-kafka:5.0.0-2.2` (`flink-sql-connector-kafka:5.0.0-2.2` for SQL) | Maven Central has only `5.0.0-2.1` and `5.0.0-2.2`. |
+| Iceberg Flink runtime | `org.apache.iceberg:iceberg-flink-runtime-2.2:1.12.0` | 1.12.0 publishes runtimes for Flink 1.20, 2.1, 2.2 and 2.3 (Flink 2.0 dropped). The sink commits after checkpoint completion (`notifyCheckpointComplete`); the SinkV2-based sink is *(experimental)* per the docs. |
+| Flink Kubernetes Operator | 1.16.1 (explained only, not run) | Compatible with Flink 2.3, 2.2, 2.1, 2.0, 1.20, 1.19. |
+| Apicurio Registry | 3.3.3 (`apicurio/apicurio-registry:3.3.3`, amd64 + arm64, 432 MB compressed) | Not in `compose.yaml` yet (Part 27 adds it to `stream`). The `-mem` image is 2.x only. Default storage is in-memory H2 (`APICURIO_STORAGE_KIND=sql`, `APICURIO_STORAGE_SQL_KIND=h2`): schemas are lost on restart. APIs `/apis/registry/v3`, `/apis/ccompat/v7`, `/apis/ccompat/v8`. |
+| Apicurio serdes | `io.apicurio:apicurio-registry-avro-serde-kafka:3.3.3` | `io.apicurio.registry.serde.avro.AvroKafkaSerializer` / `AvroKafkaDeserializer`. Wire framing vs Flink SQL's `avro-confluent` format still to be checked in Part 27. |
+| Iceberg Kafka Connect sink | 1.12.0, built from source (`./gradlew -x test -x integrationTest clean build`) | No published runtime ZIP (`iceberg-kafka-connect-runtime` is not on Maven Central). Defaults: `iceberg.control.topic` = `control-iceberg`, `iceberg.control.commit.interval-ms` = 300000. Part 27 installs it into the Debezium Connect worker (Connect 4.3.1). |
+| Kafka, Debezium, ClickHouse | 4.4.0, 3.7.0.Final, 26.8.36.3 (unchanged) | Still the latest Kafka release and the newest 26.8 build; no Debezium 3.7.1 (quay tags were rebuilt 2026-10-29, same version). |
+| Semantic layer | Cube Core v1.8.15 (`cubejs/cube:v1.8.15`, amd64 + arm64, 330 MB compressed) | Apache 2.0. Trino and ClickHouse drivers; REST API and the Postgres-wire SQL API (off by default, `CUBEJS_PG_SQL_PORT`). No Cube Store at first (in-memory result cache); its arm64 tag is `v1.8.15-arm64v8` (plain tag amd64 only). New `serve` profile from Part 31. |
+| MetricFlow | `dbt-metricflow` 0.15.0 / `metricflow` 0.213.0 (Apache 2.0) | Optional, host only: the local `mf` CLI on dbt-core 1.12 + Trino. Serving APIs need the dbt platform, so it doesn't serve the BI tool. |
+| BI | Apache Superset 6.1.0 (`apache/superset:6.1.0`, amd64 + arm64, 316 MB compressed) | Apache 2.0. Drivers aren't bundled (derived image or `requirements-local.txt`). 7.0.0rc2 not used. |
+| pgvector | 0.8.7 in `pgvector/pgvector:0.8.7-pg18` (PostgreSQL 18.6) | Checked in the running container: available, not yet created in any database. 0.9.0 is unreleased. |
+| Ollama (host) | latest 0.40.13 (MIT) | **Not installed on the lab machine on 2026-10-30** (the Homebrew service points at a removed binary; no models). Install before Part 32. |
+| Embedding model | `nomic-embed-text` (v1.5, 274 MB, 768 dimensions, 2K context) | Apache 2.0 (model card). Not pulled yet. |
+| MCP | spec 2026-07-28; Python SDK `mcp` 2.3.0 (MIT) | Part 33. dbt-mcp 2.9.0 (Apache 2.0) runs its dbt CLI tools without the dbt platform; its Semantic Layer tools need the platform. |
+| OpenTofu | 1.13.2 (MPL 2.0) | Part 34. Terraform 1.17.1 is BSL 1.1. |
+| Newer patches not adopted | Spark 4.1.4 images (2026-10-28), openlineage-python 1.55.0, uv 0.13.6, ruff 0.17.3 | The lab stays on Spark 4.1.3 and OpenLineage 1.54.0 this season; upgrading would mean re-running earlier parts. |
+
+### Part 26 (lab-verified 2026-10-30)
+
+| Component | Version / artifact | Notes |
+| --- | --- | --- |
+| Flink image | `flink:2.2.1-java17` (pulled; 908 MB on disk, arm64; OpenJDK 17.0.20.1) | `/opt/flink/conf/config.yaml` (no `flink-conf.yaml`; `bin/migrate-config-file.sh` converts old files). `FLINK_PROPERTIES` lines are merged into `config.yaml` at start (checked in the container). Lab image `every-record-counts/flink:2.2.1-java17-kafka-5.0.0` (`flink/Dockerfile`). |
+| Flink SQL Kafka connector | `flink-sql-connector-kafka-5.0.0-2.2.jar` (10,666,527 B; SHA-1 `7bf2ded1…` matches Maven Central; SHA-256 `5605c691…` pinned in `ADD --checksum`) | Reads Kafka 4.4.0. Options used: `scan.startup.mode`, `scan.bounded.mode = latest-offset`, `scan.watermark.emit.strategy` (`on-event` / `on-periodic`, Flink 1.18+ SQL watermark options; only for sources with watermark push-down, such as Kafka). |
+| Flink memory | JobManager `jobmanager.memory.process.size` 1024m (448 MB heap), TaskManager 1536m (`totalProcessMemory` 1,610,612,736 B in the REST API), 2 slots | Measured peaks in Part 26: JobManager 0.67 GiB, TaskManager 0.50 GiB. |
+| Flink SQL client | `bin/sql-client.sh -f <file>` inside the JobManager container (embedded gateway; `rest.address` = `flink-jobmanager`) | Result mode `tableau` prints append-only window results as `+I` rows. A table hint (`/*+ OPTIONS(…) */`) inside `TUMBLE(TABLE …)` is a parse error in 2.2.1; `CREATE TABLE … WITH (…) LIKE t` works instead. |
+| Java for Flink | 17 | Flink 2.2 docs: Java 11, 17 (default, recommended) and 21 (experimental); Java 25 not listed. |

@@ -274,7 +274,7 @@ services:
     depends_on:
       polaris-setup: { condition: service_completed_successfully }
 
-  # ---------- stream: Kafka and Kafka Connect with Debezium (Part 16); Flink and a registry join in Season 3 ----------
+  # ---------- stream: Kafka and Kafka Connect with Debezium (Part 16); Flink (Part 26); a registry joins in Part 27 ----------
   kafka:
     # One node that is both broker and KRaft controller. Two client listeners: kafka:29092 for containers,
     # localhost:9092 for the host. Setting any KAFKA_* config switches off the image's defaults, so all are here.
@@ -340,6 +340,53 @@ services:
     depends_on:
       kafka: { condition: service_healthy }
       postgres: { condition: service_healthy }
+
+  # ---------- stream: Flink 2.2 session cluster (Part 26): one JobManager, one TaskManager with 2 slots ----------
+  # The official image with Flink SQL's Kafka connector added (flink/Dockerfile). FLINK_PROPERTIES lines are written
+  # into /opt/flink/conf/config.yaml at start (Flink 2.x reads config.yaml; flink-conf.yaml is gone). Java 17 (Flink
+  # 2.2 doesn't support Java 25). `make up-flink` starts these with Kafka only. The keys:
+  #   jobmanager.rpc.address / rest.address  where the TaskManager and the SQL client find the JobManager
+  #   jobmanager.memory.process.size 1024m   the JobManager JVM's whole budget (448 MB heap); mem_limit 1280m above it
+  #   taskmanager.memory.process.size 1536m  the TaskManager's whole budget, incl. managed memory; mem_limit 1792m
+  #   taskmanager.numberOfTaskSlots 2        parallel task slots on the one TaskManager
+  #   parallelism.default 1                  one source reader: a topic partition is read in its order
+  flink-jobmanager:
+    build:
+      context: ./flink
+      args:
+        FLINK_IMAGE: ${FLINK_IMAGE}
+    image: every-record-counts/flink:2.2.1-java17-kafka-5.0.0
+    profiles: [stream]
+    command: jobmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        rest.address: flink-jobmanager
+        jobmanager.memory.process.size: 1024m
+        parallelism.default: 1
+    ports:
+      - "8081:8081"   # Flink web UI and REST API
+    volumes:
+      - ./flink/sql:/opt/flink/lab/sql:ro   # SQL scripts for bin/sql-client.sh -f
+    mem_limit: 1280m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs localhost:8081/overview | grep -q '\"taskmanagers\":[1-9]'"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  flink-taskmanager:
+    image: every-record-counts/flink:2.2.1-java17-kafka-5.0.0
+    profiles: [stream]
+    command: taskmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.memory.process.size: 1536m
+        taskmanager.numberOfTaskSlots: 2
+    mem_limit: 1792m
+    depends_on:
+      flink-jobmanager: { condition: service_started }
 
   # ---------- orchestrate: Airflow (Part 19) ----------
   airflow-db:

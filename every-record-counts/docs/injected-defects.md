@@ -122,5 +122,17 @@ first pull (2026-10-01 06:00 UTC). Before the second pull (2026-10-02 06:00 UTC)
 | Commission changed by a bulk fix that doesn't touch `updated_at` | 2 | misses them; a full extract finds them |
 | Hard-deleted | 1 | never sees it; a full extract (or CDC, Part 16) finds it |
 
-Sources added in later seasons (sensor telemetry, support tickets) bring their own defects; they are documented
-here when their output modes are added.
+## Cold-chain telemetry (Part 26)
+
+`datagen/coldchain.py` (seed 42, independent of the batch world) writes 360 chilled-compartment readings
+from 4 delivery vans, one every 30 seconds, 2026-10-14 10:00-10:45 UTC, in arrival order.
+Each carries the sensor's `event_ts` and the MQTT bridge's `ingest_ts`. `scripts/part26_time.py kafka` writes them to
+topic `coldchain.readings`.
+
+| Defect | Count | Effect |
+|---|---|---|
+| Readings arriving behind a newer reading: network jitter, slow cell handovers (delays up to 45 s) | 13 | Out-of-order input; harmless inside a 2-minute watermark |
+| VAN-014 buffering readings in an underground loading bay (10:13-10:24:05), uploaded in one burst | 23 (up to 665 s late) | The only evidence of a temperature excursion (peak 8.9 °C) arrives late; a 2-minute watermark drops 14 of them |
+
+Sources added in later seasons (support tickets) bring their own defects; they are documented here when their
+output modes are added.

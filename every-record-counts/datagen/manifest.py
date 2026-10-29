@@ -6,6 +6,7 @@ from pathlib import Path
 
 import polars as pl
 
+from datagen import coldchain
 from datagen import sellers as marketplace
 from datagen import settings as s
 from datagen.clickstream import BOT_UA_PATTERN, CONSENT_FROM
@@ -181,6 +182,7 @@ def write_markdown(m: dict, path: Path) -> None:
     r = m["uk_net_revenue_q3"]
     d = m["defects"]
     api = m["marketplace_sellers_api"]
+    cold = coldchain.summary()
     st = m["stock_availability_q3"]
     cv = m["conversion_q3"]
     sp = m["supplier_fill_q3"]
@@ -311,7 +313,19 @@ first pull ({marketplace.FIRST_PULL:%Y-%m-%d %H:%M} UTC). Before the second pull
 | Commission changed by a bulk fix that doesn't touch `updated_at` | {api["sellers_updated_without_updated_at"]:,} | misses them; a full extract finds them |
 | Hard-deleted | {api["sellers_hard_deleted"]:,} | never sees it; a full extract (or CDC, Part 16) finds it |
 
-Sources added in later seasons (sensor telemetry, support tickets) bring their own defects; they are documented
-here when their output modes are added.
+## Cold-chain telemetry (Part 26)
+
+`datagen/coldchain.py` (seed {coldchain.SEED}, independent of the batch world) writes {cold["readings"]} chilled-compartment readings
+from {cold["vans"]} delivery vans, one every 30 seconds, {coldchain.START:%Y-%m-%d %H:%M}-{coldchain.END:%H:%M} UTC, in arrival order.
+Each carries the sensor's `event_ts` and the MQTT bridge's `ingest_ts`. `scripts/part26_time.py kafka` writes them to
+topic `coldchain.readings`.
+
+| Defect | Count | Effect |
+|---|---|---|
+| Readings arriving behind a newer reading: network jitter, slow cell handovers (delays up to {cold["max_jitter_delay_s"]:.0f} s) | {cold["out_of_order_jitter"]} | Out-of-order input; harmless inside a 2-minute watermark |
+| {coldchain.DEAD_ZONE_VAN} buffering readings in an underground loading bay ({coldchain.DEAD_ZONE_FROM:%H:%M}-{coldchain.SIGNAL_BACK:%H:%M:%S}), uploaded in one burst | {cold["buffered_in_dead_zone"]} (up to {cold["max_delay_s"]:.0f} s late) | The only evidence of a temperature excursion (peak {cold["max_temp_c"]} °C) arrives late; a 2-minute watermark drops 14 of them |
+
+Sources added in later seasons (support tickets) bring their own defects; they are documented here when their
+output modes are added.
 """
     path.write_text(text)
