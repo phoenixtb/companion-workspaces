@@ -754,9 +754,10 @@ def q3_by_ref(ref: str | None) -> dict[str, int]:
     return out
 
 
-def restate() -> dict:
+def restate(table: str = RESTATEMENTS) -> dict:
     """Tag the report snapshot the bridge reconciled (once; a tag that exists is never moved), then record the
-    restatement: what the board saw against what the settlement files support, with the reasons."""
+    restatement: what the board saw against what the settlement files support, with the reasons. An approved
+    restatement (Part 25) is never re-proposed: a re-run leaves it as it is."""
     m = manifest()["uk_net_revenue_q3"]
     t = catalog().load_table(REPORT)
     if QUARTER_TAG not in t.metadata.refs:
@@ -783,12 +784,15 @@ def restate() -> dict:
         ]
     )
     cat = catalog()
-    if not cat.table_exists(RESTATEMENTS):
-        cat.create_table(RESTATEMENTS, schema=record.schema)
-    r = cat.load_table(RESTATEMENTS)
-    r.overwrite(
-        record.cast(r.schema().as_arrow()), overwrite_filter=And(EqualTo("period", "2026-Q3"), EqualTo("country", "GB"))
-    )
+    if not cat.table_exists(table):
+        cat.create_table(table, schema=record.schema)
+    r = cat.load_table(table)
+    key = And(EqualTo("period", "2026-Q3"), EqualTo("country", "GB"))
+    status = "proposed"
+    if "approved" in r.scan(row_filter=key, selected_fields=("status",)).to_arrow().column("status").to_pylist():
+        status = "approved (Part 25), not re-proposed,"
+    else:
+        r.overwrite(record.cast(r.schema().as_arrow()), overwrite_filter=key)
     views = {"board deck (as published)": m["legacy_board_deck_minor"]}
     for label, ref in (
         ("tag published (Part 19, moves daily)", "published"),
@@ -799,7 +803,7 @@ def restate() -> dict:
     for label, minor in views.items():
         print(f"{label:<44} {money(minor):>14}")
     print(
-        f"restatement proposed in {RESTATEMENTS}: "
+        f"restatement {status} in {table}: "
         f"{money(record['restated_minor'][0].as_py() - m['legacy_board_deck_minor'])}"
         f" (snapshot {tagged})"
     )

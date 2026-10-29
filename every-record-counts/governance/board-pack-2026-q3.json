@@ -1,0 +1,10 @@
+{
+  "_comment": "Part 25: the figures in the Q3 2026 board pack Farah signs. `part25_review signoff` recomputes each one from the lakehouse; any difference refuses the approval.",
+  "period": "2026-Q3",
+  "board_deck_minor": 2999923243,
+  "uk_net_revenue_q3_minor": 2979067406,
+  "conversion_pct": 6.21,
+  "stock_available_at_close_pct": 88.5,
+  "supplier_fill_pct": 93.1,
+  "supplier_otif_pct": 77.7
+}
