@@ -1,0 +1,132 @@
+# Part 20: the supplier feed's contract (ODCS 3.2). Suppliers send files (Part 15); this is what Larkspur promises
+# its consumers once the files are checked: the valid rows, the quarantined ones, and the rules that sort them.
+apiVersion: v3.2.0
+kind: DataContract
+id: larkspur-supplier-deliveries
+name: Supplier deliveries
+version: 1.0.0
+status: active
+domain: procurement
+description:
+  purpose: One row per purchase-order line a supplier reports as delivered, for the supplier fill-rate report.
+  usage: Join to purchase-order lines on (po_number, po_line). Quantities are units, dates are the supplier's local dates.
+  limitations: >-
+    Rows that break a property rule below are quarantined with a reason, not loaded; repeats of a row already
+    received are dropped. A supplier's file changes its header only after Larkspur adds the alias
+    (ingest/supplier_feed.json); until then that file's load stops.
+team:
+  name: data-platform
+  members:
+    - username: rohan.desai
+      role: owner
+    - username: procurement-analytics
+      role: consumer
+servers:
+  - server: lakehouse
+    type: iceberg
+    catalog: larkspur
+    catalogUrl: http://localhost:8181/api/catalog
+    warehouse: larkspur
+    namespace: silver
+  - server: trino
+    type: trino
+    host: localhost
+    port: 8080
+    catalog: lakehouse_pipeline
+    schema: silver
+schema:
+  - name: supplier_deliveries
+    physicalType: table
+    description: Valid rows, first copy only.
+    properties:
+      - name: supplier_id
+        logicalType: string
+        required: true
+        logicalTypeOptions:
+          pattern: "^S[0-9]{3}$"
+      - name: po_number
+        businessName: PO Number          # the header in the supplier's file
+        logicalType: string
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+      - name: po_line
+        logicalType: integer
+        businessName: PO Line
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 2
+      - name: sku
+        logicalType: string
+        businessName: SKU
+        required: true
+      - name: delivered_qty
+        logicalType: integer
+        businessName: Delivered Qty
+        required: true
+        logicalTypeOptions:
+          minimum: 0
+      - name: delivery_date
+        logicalType: date
+        businessName: Delivery Date
+        required: true
+        description: Parsed with the supplier's declared format (ingest/supplier_feed.json), never guessed.
+      - name: dc_id
+        logicalType: string
+        businessName: DC
+        required: true
+      - name: file_date
+        logicalType: date
+        required: true
+      - name: source_file
+        logicalType: string
+        required: true
+      - name: source_row
+        logicalType: integer
+        required: true
+    quality:
+      - name: one_row_per_po_line
+        dimension: uniqueness
+        type: sql
+        description: A PO line is delivered once; a second, different row for it is a supplier error to raise.
+        query: SELECT count(*) FROM (SELECT po_number, po_line FROM supplier_deliveries GROUP BY 1, 2 HAVING count(*) > 1)
+        mustBe: 0
+      - name: not_reported_before_delivery
+        dimension: accuracy
+        type: sql
+        description: A file reports deliveries that happened on or before the file's date, never later ones.
+        query: SELECT count(*) FROM supplier_deliveries WHERE delivery_date > file_date
+        mustBe: 0
+  - name: supplier_delivery_quarantine
+    physicalType: table
+    description: Rows that broke a rule, with the reason; kept so suppliers can be told what to resend.
+    properties:
+      - name: supplier_id
+        logicalType: string
+        required: true
+      - name: issue
+        logicalType: string
+        required: true
+        enum:
+          - value: missing PO number
+          - value: PO line not a number
+          - value: quantity not a number
+          - value: negative quantity
+          - value: date not valid in the declared format
+      - name: copy_no
+        logicalType: integer
+        required: true
+      - name: source_file
+        logicalType: string
+        required: true
+    quality:
+      - name: quarantine_under_one_percent
+        dimension: completeness
+        type: sql
+        description: >-
+          Quarantine is for the odd bad row. If more than 1% of distinct rows are quarantined, the feed is broken:
+          stop and call the supplier instead of loading what's left.
+        query: >-
+          SELECT 100.0 * count(*) / (count(*) + (SELECT count(*) FROM supplier_deliveries))
+          FROM supplier_delivery_quarantine WHERE copy_no = 1
+        mustBeLessThan: 1

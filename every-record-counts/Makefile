@@ -6,7 +6,7 @@ ALL := --profile core --profile batch --profile olap --profile stream --profile 
 STREAM := --profile core --profile stream
 ORCH := --profile core --profile batch --profile orchestrate
 
-.PHONY: dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-orchestrate airflow stop-batch stop-olap stop-stream stop-orchestrate down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
+.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-orchestrate airflow stop-batch stop-olap stop-stream stop-orchestrate down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -95,6 +95,20 @@ DBT := cd dbt/larkspur && DBT_PROFILES_DIR=. DBT_SEND_ANONYMOUS_USAGE_STATS=fals
 dbt-ci:  ## slim CI: dbt build of state:modified+ in dev, deferring to production (Part 18)
 	$(DBT) build --target dev --select state:modified+ --state state/prod --defer --favor-state \
 	  --event-time-start 2026-10-02 --event-time-end 2026-10-05
+
+DATACONTRACT_VERSION := 1.2.8
+
+contracts-install:  ## datacontract-cli into its own .venv-contracts: its DuckDB extra pins DuckDB 1.5 (Part 20)
+	uv venv --allow-existing --python 3.13 .venv-contracts
+	uv pip install --python .venv-contracts/bin/python "datacontract-cli[iceberg,s3,trino]==$(DATACONTRACT_VERSION)"
+
+# Contract CI (Part 20): lint every contract in contracts/ and compare the working tree with its version at
+# CONTRACT_BASE; a breaking change fails unless it comes as a new major version. The default, auto, is the merge base
+# with origin/main (what a pull request changes, committed or not), or HEAD without an origin/main.
+# ARGS="--base OLD --head NEW" compares one pair.
+CONTRACT_BASE ?= auto
+contract-ci:  ## refuse breaking data-contract changes (Part 20)
+	uv run python -m scripts.part20_contracts ci --ref $(CONTRACT_BASE) $(ARGS)
 
 lint:  ## ruff lint and format check
 	uv run ruff check .

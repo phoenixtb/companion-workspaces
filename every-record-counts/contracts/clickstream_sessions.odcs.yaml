@@ -1,0 +1,103 @@
+# Part 20: the session contract, owned by the data platform, read by product and marketing alike. It settles what a
+# session is, so "conversion" has one meaning (Part 6 found two). sql/part20/web_sessions.sql implements it.
+apiVersion: v3.2.0
+kind: DataContract
+id: larkspur-clickstream-sessions
+name: Clickstream sessions
+version: 1.0.0
+status: active
+domain: digital
+description:
+  purpose: One row per visit to the app or website, for funnels and the online conversion rate.
+  usage: >-
+    Conversion rate = sessions with converted = true / all sessions, grouped by the period of started_at (UTC).
+    Every dashboard that shows conversion reads this table; none sessionizes events itself.
+  limitations: >-
+    Visitors are anonymous_id (one device or browser): a signed-in customer on two devices is two visitors.
+    Bot traffic is not in this table at all.
+  authoritativeDefinitions:
+    - type: implementation
+      url: sql/part20/web_sessions.sql
+team:
+  name: data-platform
+  members:
+    - username: rohan.desai
+      role: owner
+    - username: product-analytics
+      role: consumer
+    - username: marketing-analytics
+      role: consumer
+servers:
+  - server: lakehouse
+    type: iceberg
+    catalog: larkspur
+    catalogUrl: http://localhost:8181/api/catalog
+    warehouse: larkspur
+    namespace: gold
+schema:
+  - name: web_sessions
+    physicalType: table
+    dataGranularityDescription: >-
+      One session: one anonymous_id's events with no gap over 30 minutes, in event time. Counts all five event types,
+      each event_id once (retries are the same event); events whose user agent matches (?i)bot|crawl|spider|headless
+      start no session.
+    properties:
+      - name: session_id
+        logicalType: string
+        required: true
+        unique: true
+        primaryKey: true
+      - name: anonymous_id
+        logicalType: string
+        required: true
+      - name: platform
+        logicalType: string
+        required: true
+      - name: country
+        logicalType: string
+        required: true
+      - name: user_agent
+        logicalType: string
+        required: true
+      - name: started_at
+        logicalType: timestamp
+        required: true
+      - name: ended_at
+        logicalType: timestamp
+        required: true
+      - name: events
+        logicalType: integer
+        required: true
+        logicalTypeOptions:
+          minimum: 1
+      - name: max_gap_seconds
+        logicalType: integer
+        required: true
+        description: The longest gap between two events inside the session.
+        logicalTypeOptions:
+          maximum: 1800
+      - name: converted
+        logicalType: boolean
+        required: true
+        description: The session holds a purchase event.
+    quality:
+      - name: sessions_split_at_30_minutes
+        dimension: conformity
+        type: sql
+        description: A visitor's next session starts more than 30 minutes after the previous one ended.
+        query: >-
+          SELECT count(*) FROM (SELECT started_at - lag(ended_at) OVER (PARTITION BY anonymous_id ORDER BY started_at)
+          AS gap FROM web_sessions) WHERE gap <= INTERVAL 30 MINUTE
+        mustBe: 0
+      - name: no_bots
+        dimension: accuracy
+        type: sql
+        description: No session comes from a crawler.
+        query: SELECT count(*) FROM web_sessions WHERE regexp_matches(user_agent, '(?i)bot|crawl|spider|headless')
+        mustBe: 0
+      - name: conversion_in_expected_range
+        dimension: accuracy
+        type: sql
+        description: Conversion outside 3-10% means the definition or the events changed; investigate before publishing.
+        query: SELECT 100.0 * count(*) FILTER (WHERE converted) / count(*) FROM web_sessions
+        mustBeBetween: [3, 10]

@@ -1,0 +1,83 @@
+# Part 20: the clickstream events contract as it would have read in July 2026, before the consent block (1 August)
+# and the page -> page_path rename (15 August). The base for the CI demo in proposals/.
+apiVersion: v3.2.0
+kind: DataContract
+id: larkspur-clickstream-events
+name: Clickstream events
+version: 1.0.0
+status: active
+domain: digital
+description:
+  purpose: Every app and web interaction event, as the SDK sends it, for sessions, funnels and product analytics.
+team:
+  name: app-and-web
+  members:
+    - username: app-platform-lead
+      role: owner
+    - username: rohan.desai
+      role: consumer
+servers:
+  - server: landing
+    type: s3
+    location: s3://larkspur-raw/raw/clickstream/events/*/*.jsonl.gz
+    endpointUrl: http://localhost:8333
+    format: json
+    delimiter: new_line
+  - server: lakehouse
+    type: iceberg
+    catalog: larkspur
+    catalogUrl: http://localhost:8181/api/catalog
+    warehouse: larkspur
+    namespace: raw
+schema:
+  - name: events
+    physicalName: clickstream_events
+    physicalType: table
+    properties:
+      - name: event_id
+        logicalType: string
+        required: true
+        description: Unique per event; an SDK retry re-sends the same event_id (at-least-once delivery).
+      - name: event_type
+        logicalType: string
+        required: true
+        enum:
+          - value: page_view
+          - value: product_view
+          - value: add_to_cart
+          - value: checkout_start
+          - value: purchase
+      - name: event_ts
+        logicalType: timestamp
+        required: true
+        description: When the event happened on the device, with its UTC offset.
+      - name: anonymous_id
+        logicalType: string
+        required: true
+      - name: user_id
+        logicalType: string
+      - name: platform
+        logicalType: string
+        required: true
+        enum:
+          - value: app
+          - value: web
+      - name: user_agent
+        logicalType: string
+        required: true
+      - name: country
+        logicalType: string
+        required: true
+        enum:
+          - value: GB
+          - value: IN
+          - value: SG
+      - name: page
+        logicalType: string
+        required: true
+      - name: sku
+        logicalType: string
+      - name: order_id
+        logicalType: string
+      - name: app_version
+        logicalType: string

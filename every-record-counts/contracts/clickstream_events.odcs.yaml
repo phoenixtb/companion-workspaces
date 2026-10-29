@@ -1,0 +1,124 @@
+# Part 20: the clickstream events contract, owned by the app and web team. Version 2 is the negotiated end of the
+# 15 August rename: both names are accepted while app 4.x is in use, exactly one per event; `page` is deprecated.
+apiVersion: v3.2.0
+kind: DataContract
+id: larkspur-clickstream-events
+name: Clickstream events
+version: 2.0.0
+status: active
+domain: digital
+description:
+  purpose: Every app and web interaction event, as the SDK sends it, for sessions, funnels and product analytics.
+team:
+  name: app-and-web
+  members:
+    - username: app-platform-lead
+      role: owner
+    - username: rohan.desai
+      role: consumer
+servers:
+  - server: landing
+    type: s3
+    location: s3://larkspur-raw/raw/clickstream/events/*/*.jsonl.gz
+    endpointUrl: http://localhost:8333
+    format: json
+    delimiter: new_line
+  - server: lakehouse
+    type: iceberg
+    catalog: larkspur
+    catalogUrl: http://localhost:8181/api/catalog
+    warehouse: larkspur
+    namespace: raw
+schema:
+  - name: events
+    physicalName: clickstream_events
+    physicalType: table
+    properties:
+      - name: event_id
+        logicalType: string
+        required: true
+        description: Unique per event; an SDK retry re-sends the same event_id (at-least-once delivery).
+      - name: event_type
+        logicalType: string
+        required: true
+        enum:
+          - value: page_view
+          - value: product_view
+          - value: add_to_cart
+          - value: checkout_start
+          - value: purchase
+      - name: event_ts
+        logicalType: timestamp
+        required: true
+        description: When the event happened on the device, with its UTC offset.
+      - name: anonymous_id
+        logicalType: string
+        required: true
+      - name: user_id
+        logicalType: string
+      - name: platform
+        logicalType: string
+        required: true
+        enum:
+          - value: app
+          - value: web
+      - name: user_agent
+        logicalType: string
+        required: true
+      - name: country
+        logicalType: string
+        required: true
+        enum:
+          - value: GB
+          - value: IN
+          - value: SG
+      - name: page
+        logicalType: string
+        deprecated: true
+        description: Sent by app 4.x only. Use page_path.
+      - name: page_path
+        logicalType: string
+        description: The page or screen path; replaced `page` on the web from 15 August 2026 and in app 5.0.
+      - name: sku
+        logicalType: string
+      - name: order_id
+        logicalType: string
+      - name: app_version
+        logicalType: string
+      - name: consent
+        logicalType: object
+        description: The visitor's consent choices, sent from 1 August 2026; absent before.
+        properties:
+          - name: analytics
+            logicalType: boolean
+          - name: ads
+            logicalType: boolean
+    quality:
+      - name: one_page_field
+        dimension: conformity
+        type: sql
+        description: Every event carries exactly one of page_path and page.
+        query: SELECT count(*) FROM events WHERE (page IS NULL) = (page_path IS NULL)
+        mustBe: 0
+      - name: retries_are_identical
+        dimension: uniqueness
+        type: sql
+        description: An event_id seen twice is an SDK retry of the same event, never a different event.
+        query: >-
+          SELECT count(*) FROM (SELECT event_id FROM events GROUP BY event_id
+          HAVING count(DISTINCT (event_ts, event_type, anonymous_id)) > 1)
+        mustBe: 0
+      - name: retries_under_one_percent
+        dimension: uniqueness
+        type: sql
+        description: Retries (repeated event_ids) stay below 1% of events.
+        query: SELECT 100.0 * (count(*) - count(DISTINCT event_id)) / count(*) FROM events
+        mustBeLessThan: 1
+      - name: purchase_has_order
+        dimension: completeness
+        type: sql
+        description: A purchase carries its order_id; product views and add-to-carts carry a sku.
+        query: >-
+          SELECT count(*) FROM events WHERE (event_type = 'purchase' AND order_id IS NULL)
+          OR (event_type IN ('product_view', 'add_to_cart') AND sku IS NULL)
+        mustBe: 0
