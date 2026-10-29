@@ -1,0 +1,10 @@
+{
+ "folders": 386,
+ "bytes": 12132820085,
+ "objects": 26794,
+ "disk": {
+  "before": "6.9G free of 79.9G",
+  "after": "16.3G free of 79.9G"
+ },
+ "note": "The sweep in Part 24's Step 7 (2026-10-29): what it deleted."
+}

@@ -1,0 +1,22 @@
+{
+  "note": "Assumptions, not measurements. Bytes and CPU grow with volume; request counts follow files, which follow the commit cadence (Part 14), so they are not scaled.",
+  "volume_scale": 50,
+  "volume_scale_source": "Part 14: production volume taken as 50 times the lab's files",
+  "days_per_month": 30,
+  "daily_runs_per_day": 1,
+  "reads_per_day": {
+    "finance_revenue": 40,
+    "uk_store_week": 1200,
+    "stock_yesterday": 300,
+    "conversion_week": 60
+  },
+  "data_product": {
+    "daily run": "revenue",
+    "finance_revenue": "revenue",
+    "uk_store_week": "store sales",
+    "stock_yesterday": "stock",
+    "conversion_week": "conversion"
+  },
+  "platform_namespaces": ["raw", "silver", "gold", "customer", "dev"],
+  "provisioned_cluster": {"vcpu": 16, "memory_gb": 64, "hours_per_month": 730}
+}

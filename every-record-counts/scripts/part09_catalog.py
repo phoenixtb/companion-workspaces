@@ -109,10 +109,19 @@ def lake_fs():
 
 
 def drop_table(ns: str, name: str, tok: str) -> None:
+    """Drop a table from the catalog (no purge), then delete its folder: a drop forgets the table, the files stay
+    (Part 1). Part 24: the folder is the table's own `location`. Until then this deleted `warehouse/<ns>/<name>`,
+    which is where PyIceberg puts a table, but Trino (so dbt) names the folder `<name>-<uuid>`: every table Trino had
+    created stayed behind in storage after its drop."""
+    status, meta = call("GET", f"{CAT}/namespaces/{ns}/tables/{name}", tok=tok)
     call("DELETE", f"{CAT}/namespaces/{ns}/tables/{name}", tok=tok)
+    if status != 200:
+        return
+    folder = meta["metadata"]["location"].removeprefix("s3://").rstrip("/")
     fs = lake_fs()
-    if fs.exists(f"larkspur-lake/warehouse/{ns}/{name}"):  # a drop forgets the table; the files stay (Part 1)
-        fs.rm(f"larkspur-lake/warehouse/{ns}/{name}", recursive=True)
+    fs.invalidate_cache()  # the file system object is shared: its listings may predate the table
+    if folder.startswith(f"larkspur-lake/warehouse/{ns}/") and fs.exists(folder):  # never above the table's folder
+        fs.rm(folder, recursive=True)
 
 
 def reset() -> None:

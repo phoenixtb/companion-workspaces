@@ -80,9 +80,10 @@ services:
     command: >
       mini -dir=/data -bucket=larkspur-raw,larkspur-lake
       -s3.config=/etc/seaweedfs/s3.json -s3.iam.config=/etc/seaweedfs/iam.json
-      -s3.port.iceberg=0 -s3.port.lance=0 -master.telemetry=false
+      -s3.port.iceberg=0 -s3.port.lance=0 -master.telemetry=false -metricsPort=9327
     ports:
       - "8333:8333"   # S3 API
+      - "9327:9327"   # Prometheus metrics: S3 requests by bucket and action (Part 24)
       - "8888:8888"   # filer UI (browse buckets)
     volumes:
       - seaweedfs-data:/data

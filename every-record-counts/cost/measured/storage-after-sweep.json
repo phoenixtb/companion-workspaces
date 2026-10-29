@@ -1,0 +1,145 @@
+{
+ "measured_at": "2026-10-29T14:25:53+00:00",
+ "tables": 89,
+ "views": 19,
+ "bytes": {
+  "other lab files": 3847146197,
+  "current": 5119945688,
+  "metadata": 687036885,
+  "history": 4693362949,
+  "orphan": 1788643128,
+  "owner-less": 460164584,
+  "raw zone files": 626438861
+ },
+ "objects": {
+  "other lab files": 861,
+  "current": 3028,
+  "metadata": 20237,
+  "history": 3352,
+  "orphan": 5015,
+  "owner-less": 1228,
+  "raw zone files": 3458
+ },
+ "per_namespace": {
+  "customer": {
+   "current": 4013638,
+   "metadata": 3356242,
+   "history": 116999
+  },
+  "dev": {
+   "current": 33396016,
+   "metadata": 921842,
+   "orphan": 1428145,
+   "owner-less": 460164584,
+   "history": 67762
+  },
+  "gold": {
+   "current": 287287401,
+   "history": 2972134616,
+   "orphan": 1722522918,
+   "metadata": 593377935
+  },
+  "part01": {
+   "current": 43207260,
+   "metadata": 31446
+  },
+  "part06": {
+   "current": 121060515,
+   "metadata": 44183
+  },
+  "part07": {
+   "current": 95646279,
+   "metadata": 841795,
+   "history": 71726334,
+   "orphan": 145900
+  },
+  "part08": {
+   "current": 367051,
+   "metadata": 472002
+  },
+  "part10": {
+   "current": 3575558070,
+   "metadata": 1835812,
+   "history": 1131466739
+  },
+  "part11": {
+   "orphan": 154341,
+   "current": 3345,
+   "metadata": 320514
+  },
+  "part12": {
+   "current": 320483539,
+   "metadata": 16977
+  },
+  "part15": {
+   "other lab files": 7360,
+   "history": 57101,
+   "current": 68694,
+   "metadata": 53192
+  },
+  "part19": {
+   "history": 195,
+   "current": 195,
+   "metadata": 31340,
+   "orphan": 579
+  },
+  "raw": {
+   "other lab files": 236604,
+   "current": 443333211,
+   "metadata": 6085494,
+   "history": 88447007
+  },
+  "silver": {
+   "history": 429346196,
+   "current": 195520474,
+   "metadata": 79648111,
+   "orphan": 64391245
+  }
+ },
+ "ownerless_folders": {
+  "larkspur-lake/warehouse/dev/fct_sales_line-eeb482ed54f44931935318352e1730ed": [
+   202031485,
+   896,
+   "2026-10-29 13:33:01+00:00"
+  ],
+  "larkspur-lake/warehouse/dev/fct_sales_line_full-4e2f031f237245558b281c35bbbdc790": [
+   80595945,
+   7,
+   "2026-10-29 13:33:26+00:00"
+  ],
+  "larkspur-lake/warehouse/dev/fct_sales_line_lookback1-3ab78f7db44d46e1990ccf5d46c0da8e": [
+   91527080,
+   200,
+   "2026-10-29 13:32:55+00:00"
+  ],
+  "larkspur-lake/warehouse/dev/fct_sales_line_naive-1c561044a9a5483aae8088601509b380": [
+   85960012,
+   77,
+   "2026-10-29 13:32:55+00:00"
+  ],
+  "larkspur-lake/warehouse/dev/int_sales_lines-a41a3f5c59e3437386229d15a3683617": [
+   16178,
+   16,
+   "2026-10-29 13:33:00+00:00"
+  ],
+  "larkspur-lake/warehouse/dev/stg_online_sale_lines-7e5a3640ce4a48948b920d6ccf99db3a": [
+   17386,
+   16,
+   "2026-10-29 13:33:00+00:00"
+  ],
+  "larkspur-lake/warehouse/dev/stg_pos_sale_lines-01959b4d561d4e55970adcc442ab8751": [
+   16498,
+   16,
+   "2026-10-29 13:33:00+00:00"
+  ]
+ },
+ "platform": {
+  "current": 963550740,
+  "history": 3490112580,
+  "metadata": 683389624,
+  "orphan": 1788342308,
+  "owner-less": 460164584
+ },
+ "failures": null,
+ "note": "Written by `sweep --apply` on 2026-10-29 (Part 24, the run in the post's Step 7), before `platform` and `failures` were saved: `platform` is the sum of per_namespace over the platform namespaces; `failures` wasn't recorded."
+}

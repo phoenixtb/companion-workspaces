@@ -54,6 +54,8 @@ models:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns: [transaction_id, line_no]
+          config:
+            where: "event_ts >= TIMESTAMP '{{ var('test_since', '1970-01-01') }} 00:00:00 UTC'"  # Part 24
     columns:
       - name: product_key
         data_tests:
@@ -61,18 +63,24 @@ models:
               arguments:
                 to: ref('dim_product')
                 field: product_key
+              config:
+                where: "event_ts >= TIMESTAMP '{{ var('test_since', '1970-01-01') }} 00:00:00 UTC'"  # Part 24
       - name: promo_key
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_promotion')
                 field: promo_key
+              config:
+                where: "event_ts >= TIMESTAMP '{{ var('test_since', '1970-01-01') }} 00:00:00 UTC'"  # Part 24
       - name: date_key
         data_tests:
           - relationships:
               arguments:
                 to: ref('dim_date')
                 field: date_key
+              config:
+                where: "event_ts >= TIMESTAMP '{{ var('test_since', '1970-01-01') }} 00:00:00 UTC'"  # Part 24
 
   - name: fct_basket
     description: "Grain: one row per basket or order."

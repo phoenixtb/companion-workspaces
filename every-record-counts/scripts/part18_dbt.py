@@ -121,13 +121,22 @@ POS = "SELECT * EXCLUDE (schema_version) FROM raw_pos_events WHERE {where} ORDER
 
 
 def empty_dev(names: list[str]) -> None:
-    """Drop tables and views in `dev`. Tables go through the catalog without a purge, their files removed here: a
-    Trino DROP TABLE asks Polaris to purge, and purging tables with hundreds of snapshots in Polaris's background
-    tasks exhausted its S3 connection pool in the lab (Troubleshooting in the post)."""
+    """Drop tables and views in `dev`. Tables go through the catalog without a purge, their files removed by
+    cat9.drop_table: a Trino DROP TABLE asks Polaris to purge, and purging tables with hundreds of snapshots in
+    Polaris's background tasks exhausted its S3 connection pool in the lab (Troubleshooting in the post). Part 24 found
+    the files weren't removed (drop_table looked for a folder without the UUID Trino adds) and fixed drop_table."""
     tok = cat9.token()
+    fs = cat9.lake_fs()
     for name in names:
         cat9.drop_table("dev", name, tok)
+        status, view = cat9.call("GET", f"{cat9.CAT}/namespaces/dev/views/{name}", tok=tok)
         cat9.trino(f"DROP VIEW IF EXISTS lakehouse_dev.dev.{name}")
+        if status == 200:  # Part 24: a dropped view's metadata files stay too; delete its folder like a table's
+            folder = view["metadata-location"].removeprefix("s3://").rsplit("/", 2)[0]
+            if folder.startswith("larkspur-lake/warehouse/dev/"):
+                fs.invalidate_cache()
+                if fs.exists(folder):
+                    fs.rm(folder, recursive=True)
 
 
 def land_pos(where: str, fresh: bool) -> int:

@@ -1,0 +1,34 @@
+{
+ "measured_at": "2026-10-29 (the sweep's own classification, minutes before 2026-10-29T14:25:53+00:00)",
+ "tables": 89,
+ "views": 19,
+ "bytes": {
+  "other lab files": 3847146197,
+  "current": 5119945688,
+  "metadata": 687036885,
+  "history": 4693362949,
+  "orphan": 1788643128,
+  "owner-less": 12592984669,
+  "raw zone files": 626438861
+ },
+ "objects": {
+  "other lab files": 861,
+  "current": 3028,
+  "metadata": 20237,
+  "history": 3352,
+  "orphan": 5015,
+  "owner-less": 28022,
+  "raw zone files": 3458
+ },
+ "per_namespace": null,
+ "ownerless_folders": null,
+ "platform": {
+  "current": 963550740,
+  "history": 3490112580,
+  "metadata": 683389624,
+  "orphan": 1788342308,
+  "owner-less": 12592984669
+ },
+ "failures": null,
+ "note": "A test run overwrote the pre-sweep file, so this is storage-after-sweep.json plus the 386 folders the sweep deleted (sweep.json: bytes, objects); it reproduces Step 1's printout and the model's storage lines exactly. Every deleted folder was in a platform namespace except, possibly, dlt's 41-byte marker larkspur-lake/warehouse/part15/init. dlt's larkspur-lake/warehouse/raw/init was probably deleted by this sweep too (both markers were recreated by Part 15's tests at about 14:35 UTC); sweeps now exempt them."
+}
