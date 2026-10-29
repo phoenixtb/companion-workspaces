@@ -26,5 +26,9 @@ sources:
   - name: silver
     schema: silver
     tables:
+      - name: pos_event_dispositions
+        description: >
+          Part 21: one row per POS event uploaded, with its disposition (accepted, resend, collision), decided once by
+          basket_id and payload hash when the upload day is accepted (`scripts.part21_reconcile accept`).
       - name: supplier_deliveries
         description: Part 15's valid supplier delivery rows (quarantined rows and repeats removed).

@@ -99,7 +99,7 @@ def test_star_matches_part5(run):
 def test_unit_test_catches_a_resent_basket(run):
     out = lab.unit_demo()
     assert "FAIL 1 stg_pos_sale_lines::a_resent_basket_counts_once" in out
-    assert "where c.event_id is null" in (lab.PROJECT / "models/staging/stg_pos_sale_lines.sql").read_text()  # restored
+    assert "where disposition = 'accepted'" in (lab.PROJECT / "models/staging/stg_pos_sale_lines.sql").read_text()
 
 
 @dbt_v1

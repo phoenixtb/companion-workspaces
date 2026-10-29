@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: stg_pos_sale_lines
-    description: POS sale lines, first upload of each basket only.
+    description: POS sale lines of accepted events only (Part 21's dispositions); re-sends never reach them.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -11,8 +11,8 @@ models:
 unit_tests:
   - name: a_resent_basket_counts_once
     description: >
-      A till reconnects and uploads basket B1 again under a new event_id (Part 6's duplicates). Only the first
-      upload's lines survive; B2 is untouched.
+      A till reconnects and uploads basket B1 again under a new event_id (Part 6's duplicates); Part 21's acceptance
+      step marked the copy E2 a resend. Only the accepted upload's lines survive; B2 is untouched.
     model: stg_pos_sale_lines
     given:
       - input: source('raw', 'pos_uploads')
@@ -33,6 +33,11 @@ unit_tests:
              array[cast(row('wallet', 450) as row("type" varchar, amount_minor bigint))], date '2026-09-30')
           ) as t (event_id, event_type, store_id, till_id, basket_id, event_ts, uploaded_at, currency, loyalty_id,
                   lines, tenders, upload_date)
+      - input: source('silver', 'pos_event_dispositions')
+        rows:
+          - {event_id: E1, event_ts: '2026-09-30 10:00:00 UTC', disposition: accepted}
+          - {event_id: E2, event_ts: '2026-09-30 10:00:00 UTC', disposition: resend}
+          - {event_id: E3, event_ts: '2026-09-30 11:00:00 UTC', disposition: accepted}
     expect:
       rows:
         - {transaction_id: B1, line_no: 1, sku: SKU-00001, amount_minor: 300, has_loyalty_card: false}

@@ -38,9 +38,11 @@ LAB = ROOT / "data/lab/part18"
 
 DEV_NS = "dev"
 DEVELOPER = ("developer", "developer-lab-secret")
-DEV_GRANTS = {  # namespace -> privileges; nothing on silver or gold, so no dev build can drop a production table
+READ_ONLY = ["TABLE_LIST", "TABLE_READ_DATA", "NAMESPACE_READ_PROPERTIES", "TABLE_READ_PROPERTIES"]
+DEV_GRANTS = {  # namespace -> privileges; no write on silver or gold, so no dev build can drop a production table
     DEV_NS: [*cat9.WRITE, *p17.TRANSFORMER_GRANTS],
-    "raw": ["TABLE_LIST", "TABLE_READ_DATA", "NAMESPACE_READ_PROPERTIES", "TABLE_READ_PROPERTIES"],
+    "raw": READ_ONLY,
+    "silver": READ_ONLY,  # Part 21: POS staging reads silver.pos_event_dispositions
 }
 
 
@@ -419,13 +421,13 @@ def deploy() -> dict:
 BATCH_FILTER = "event_ts >= TIMESTAMP '2026-09-15 00:00:00+00:00' AND event_ts < TIMESTAMP '2026-09-16 00:00:00+00:00'"
 
 
-def explain() -> list[str]:
-    """Trino's plan for one day of int_sales_lines (the view a batch reads): every scan of the raw tables should carry
-    the event_ts range."""
-    plan = p17.trino(f"EXPLAIN SELECT count(*) FROM lakehouse_dev.dev.int_sales_lines WHERE {BATCH_FILTER}")[0][0]
-    scans = [line.strip() for line in plan.splitlines() if re.search(r"(Scan\w*)\[table = \w+:raw\.", line)]
+def explain(view: str = "lakehouse_dev.dev.int_sales_lines") -> list[str]:
+    """Trino's plan for one day of int_sales_lines (the view a batch reads): every scan of the raw tables, and of Part
+    21's dispositions, should carry the event_ts range."""
+    plan = p17.trino(f"EXPLAIN SELECT count(*) FROM {view} WHERE {BATCH_FILTER}")[0][0]
+    scans = [line.strip() for line in plan.splitlines() if re.search(r"(Scan\w*)\[table = \w+:(raw|silver)\.", line)]
     for line in scans:
-        table = re.search(r"raw\.(\w+)", line).group(1)
+        table = re.search(r"(?:raw|silver)\.(\w+)", line).group(1)
         rng = re.search(r"filterPredicate = \(\((.*?)\) AND \((.*?)\)\)", line)
         print(f"{table:<12} " + (f"{rng.group(1)} AND {rng.group(2)}" if rng else "no event-time filter"))
     return scans

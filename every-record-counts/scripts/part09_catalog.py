@@ -1,6 +1,6 @@
 """Part 9: the catalog as control plane. Principals, roles and grants in Polaris; four engines on one table.
 
-uv run python -m scripts.part09_catalog reset      # drop the Part 9 tables and roles (and namespaces, if empty)
+uv run python -m scripts.part09_catalog reset      # drop the Part 9 tables and catalog roles (and namespaces, if empty)
 uv run python -m scripts.part09_catalog setup      # vending on; namespaces, principals, roles, grants (plain HTTP)
 uv run python -m scripts.part09_catalog load       # the pipeline principal writes a raw and a gold table
 uv run python -m scripts.part09_catalog engines    # PyIceberg, DuckDB, Trino and Spark read the same gold table
@@ -124,13 +124,13 @@ def reset() -> None:
         drop_table(ns, name, tok)
     for ns in NAMESPACES:
         call("DELETE", f"{CAT}/namespaces/{ns}", tok=tok)  # refused unless empty
-    for role in PRINCIPAL_ROLES:
-        call("DELETE", f"{MGMT}/principal-roles/{role}", tok=tok)
+    # Principal roles stay too: later parts attach their own catalog roles to them (Part 17's `transformer` on
+    # `pipelines`), and deleting the principal role would silently drop those. Part 9's catalog roles are re-created.
     for role in CATALOG_ROLES:
         call("DELETE", f"{MGMT}/catalogs/{CATALOG}/catalog-roles/{role}", tok=tok)
     # Principals stay: Trino holds an OAuth token for `analyst`, and a re-created principal (new id) would make
     # every Trino request fail with 401 until Trino restarts. `setup` resets their credentials anyway.
-    print("part09: no raw.pos_events or gold.daily_store_sales, no Part 9 roles (principals kept, namespaces in use)")
+    print("part09: no raw.pos_events or gold.daily_store_sales, no Part 9 catalog roles (principals kept)")
 
 
 def setup() -> None:

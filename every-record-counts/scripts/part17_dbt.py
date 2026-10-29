@@ -134,6 +134,10 @@ def land(only: list[str] | None = None) -> dict[str, int]:
         table.append(data)
         out[name] = data.num_rows
         print(f"raw.{name:<20} {data.num_rows:>11,} rows  {time.monotonic() - started:5.1f}s")
+    if "pos_uploads" in out:  # Part 21: stg_pos_sale_lines reads only accepted events; decide any day not yet decided
+        from scripts import part21_reconcile as p21
+
+        p21.ensure_dispositions()
     return out
 
 
@@ -327,11 +331,11 @@ def builds(table: str = "gold.fct_sales_line") -> list:
 
 
 def unit_demo() -> str:
-    """Delete the line that drops re-sent baskets' later copies and run the unit test: it must fail. The file is
-    restored after."""
+    """Delete the line that keeps only accepted events (Part 21; until then, the line that dropped re-sent baskets'
+    later copies) and run the unit test: it must fail. The file is restored after."""
     model = PROJECT / "models/staging/stg_pos_sale_lines.sql"
     original = model.read_text()
-    line = "where c.event_id is null\n"
+    line = "    where disposition = 'accepted'\n"
     assert line in original
     try:
         model.write_text(original.replace(line, ""))

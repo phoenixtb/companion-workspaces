@@ -93,8 +93,8 @@ def test_production_runs_the_new_models(run):
 
 
 def test_a_batch_filter_reaches_every_raw_upload_scan(run):
-    scans = [s for s in lab.explain() if "raw.pos_uploads" in s]
-    assert len(scans) == 3 and all("2026-09-15 00:00:00" in s for s in scans)
+    scans = [s for s in lab.explain() if "raw.pos_uploads" in s or "silver.pos_event_dispositions" in s]
+    assert len(scans) == 2 and all("2026-09-15 00:00:00" in s for s in scans)  # one each since Part 21
 
 
 def test_lateness_crosses_one_utc_midnight_at_most():

@@ -1,6 +1,9 @@
 """Part 19: Larkspur's daily revenue pipeline. One run per UTC upload day: land the day's till uploads, rebuild the
 microbatch facts for the days those uploads can touch, check, then publish the report.
 
+Part 21 adds three tasks: accept the day's POS events by their natural key (one disposition per event), land the PSP's
+settlement files that have arrived, and reconcile (the daily control table) as a gate before publish.
+
 The DAG decides only *when* and *in what order*. What each step does lives in the lab (scripts/part19_pipeline.py,
 sql/part19/checks.sql, the dbt project), so the same commands run by hand, in CI and here.
 """
@@ -9,6 +12,7 @@ import json
 import subprocess
 from datetime import timedelta
 
+import larkspur_alerts
 import pendulum
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.providers.standard.sensors.bash import BashSensor
@@ -24,6 +28,7 @@ from airflow.sdk import (
 )
 
 LAB = "cd /opt/lab && /opt/lab-venv/bin/python -m scripts.part19_pipeline"
+LAB21 = "cd /opt/lab && /opt/lab-venv/bin/python -m scripts.part21_reconcile"
 
 # Assets name the tables, not the tasks: anything that needs the published report waits for this, whoever makes it.
 RAW_POS = Asset(uri="iceberg://larkspur/raw/pos_uploads", name="raw.pos_uploads")
@@ -66,6 +71,20 @@ with DAG(
         outlets=[RAW_POS],
     )
 
+    # Part 21: every event the tills sent gets one disposition (accepted, resend, collision) before anything counts it.
+    accept = BashOperator(
+        task_id="accept_pos_events",
+        bash_command=f"{LAB21} accept --day {{{{ ds }}}}",
+        pool="lakehouse",
+    )
+
+    # The PSP's files arrive on their own clock: whatever is dated up to the morning after the upload day has landed.
+    land_settlements = BashOperator(
+        task_id="land_settlements",
+        bash_command=f"{LAB21} land-psp --until {{{{ macros.ds_add(ds, 1) }}}}",
+        pool="lakehouse",
+    )
+
     # Which models and which microbatch days a run for D rebuilds is the lab's decision (scripts/part19_pipeline.py).
     dbt_build = BashOperator(
         task_id="dbt_build",
@@ -80,6 +99,16 @@ with DAG(
         retries=0,  # a broken rule is not transient: retrying it only delays the page
     )
 
+    # Part 21: the books must balance before anyone sees the numbers. Ledger vs gold vs PSP, stock and clickstream
+    # control totals, for the last week of closed days; any difference fails the task, and publish never runs.
+    reconcile = BashOperator(
+        task_id="reconcile",
+        bash_command=f"{LAB21} control --day {{{{ ds }}}}",
+        pool="lakehouse",
+        retries=0,  # a difference in the books is not transient
+        on_failure_callback=larkspur_alerts.reconciliation_failed,
+    )
+
     @task(pool="lakehouse", outlets=[REPORT])
     def publish(ds=None):
         out = subprocess.run(
@@ -92,4 +121,5 @@ with DAG(
         info = json.loads(out.strip().splitlines()[-1])
         yield Metadata(REPORT, {"upload_date": ds, "snapshot_id": str(info["snapshot_id"])})
 
-    wait_for_uploads >> ingest >> dbt_build >> quality_checks >> publish()
+    wait_for_uploads >> ingest >> accept >> dbt_build >> quality_checks >> reconcile >> publish()
+    land_settlements >> reconcile

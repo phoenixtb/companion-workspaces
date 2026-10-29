@@ -84,8 +84,11 @@ def test_backfill_runs_every_day_through_publish(run):
     assert {t["task_id"]: t["state"] for t in tasks} == {
         "wait_for_uploads": "success",
         "ingest_pos_uploads": "success",
+        "accept_pos_events": "success",  # Part 21
+        "land_settlements": "success",  # Part 21
         "dbt_build": "success",
         "quality_checks": "success",
+        "reconcile": "success",  # Part 21
         "publish": "success",
     }
 
