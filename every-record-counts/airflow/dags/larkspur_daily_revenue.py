@@ -4,6 +4,9 @@ microbatch facts for the days those uploads can touch, check, then publish the r
 Part 21 adds three tasks: accept the day's POS events by their natural key (one disposition per event), land the PSP's
 settlement files that have arrived, and reconcile (the daily control table) as a gate before publish.
 
+Part 22 declares each task's input and output tables as OpenLineage datasets (a BashOperator can't say what it read)
+and hands the dbt task's run ID to dbt-ol, so the model runs become children of the Airflow task in the lineage graph.
+
 The DAG decides only *when* and *in what order*. What each step does lives in the lab (scripts/part19_pipeline.py,
 sql/part19/checks.sql, the dbt project), so the same commands run by hand, in CI and here.
 """
@@ -26,6 +29,7 @@ from airflow.sdk import (
     SyncCallback,
     task,
 )
+from openlineage.client.event_v2 import Dataset
 
 LAB = "cd /opt/lab && /opt/lab-venv/bin/python -m scripts.part19_pipeline"
 LAB21 = "cd /opt/lab && /opt/lab-venv/bin/python -m scripts.part21_reconcile"
@@ -34,6 +38,28 @@ LAB21 = "cd /opt/lab && /opt/lab-venv/bin/python -m scripts.part21_reconcile"
 RAW_POS = Asset(uri="iceberg://larkspur/raw/pos_uploads", name="raw.pos_uploads")
 SALES_FACTS = Asset(uri="iceberg://larkspur/gold/fct_sales_line", name="gold.fct_sales_line")
 REPORT = Asset(uri="iceberg://larkspur/gold/rpt_daily_net_revenue_v2", name="gold.rpt_daily_net_revenue_v2")
+
+
+def table(name: str) -> Dataset:
+    """Part 22: a lake table as dbt-ol names it (Trino's address + catalog.namespace.table), so the tasks that write a
+    table with PyIceberg and the dbt models that read it meet at one node in the lineage graph."""
+    return Dataset(namespace="trino://trino:8080", name=f"lakehouse_pipeline.{name}")
+
+
+def files(path: str) -> Dataset:
+    return Dataset(namespace="file", name=f"/opt/lab/data/raw/{path}")
+
+
+CONTROL_INPUTS = "raw.payments raw.refunds raw.psp_settlements silver.pos_event_dispositions gold.fct_basket".split()
+
+# dbt-ol reads its parent (this task's OpenLineage run) from the environment; the macros come from the provider.
+OL_PARENT = {
+    "OPENLINEAGE_PARENT_ID": "{{ macros.OpenLineageProviderPlugin.lineage_parent_id(task_instance) }}",
+    "OPENLINEAGE_ROOT_PARENT_ID": "{{ macros.OpenLineageProviderPlugin.lineage_root_parent_id(task_instance) }}",
+    "OPENLINEAGE_NAMESPACE": "larkspur",
+    # instead of dbt-run-<project>; no dot: OpenMetadata 2.0.7 can't match a pipeline whose name has one (Part 22)
+    "OPENLINEAGE_DBT_JOB_NAME": "larkspur_daily_revenue_dbt",
+}
 
 with DAG(
     dag_id="larkspur_daily_revenue",
@@ -68,7 +94,8 @@ with DAG(
         task_id="ingest_pos_uploads",
         bash_command=f"{LAB} ingest --day {{{{ ds }}}}",
         pool="lakehouse",
-        outlets=[RAW_POS],
+        inlets=[files("pos/events")],
+        outlets=[RAW_POS, table("raw.pos_uploads")],
     )
 
     # Part 21: every event the tills sent gets one disposition (accepted, resend, collision) before anything counts it.
@@ -76,6 +103,8 @@ with DAG(
         task_id="accept_pos_events",
         bash_command=f"{LAB21} accept --day {{{{ ds }}}}",
         pool="lakehouse",
+        inlets=[table("raw.pos_uploads")],
+        outlets=[table("silver.pos_event_dispositions")],
     )
 
     # The PSP's files arrive on their own clock: whatever is dated up to the morning after the upload day has landed.
@@ -83,12 +112,16 @@ with DAG(
         task_id="land_settlements",
         bash_command=f"{LAB21} land-psp --until {{{{ macros.ds_add(ds, 1) }}}}",
         pool="lakehouse",
+        inlets=[files("psp/settlements")],
+        outlets=[table("raw.psp_settlements")],
     )
 
     # Which models and which microbatch days a run for D rebuilds is the lab's decision (scripts/part19_pipeline.py).
     dbt_build = BashOperator(
         task_id="dbt_build",
         bash_command=f"{LAB} build --day {{{{ ds }}}}",
+        env=OL_PARENT,
+        append_env=True,  # keep the container's environment (PATH, LAB_*, OPENLINEAGE__*)
         pool="lakehouse",
         outlets=[SALES_FACTS],
     )
@@ -107,9 +140,11 @@ with DAG(
         pool="lakehouse",
         retries=0,  # a difference in the books is not transient
         on_failure_callback=larkspur_alerts.reconciliation_failed,
+        inlets=[table(t) for t in CONTROL_INPUTS],
+        outlets=[table("gold.daily_controls")],
     )
 
-    @task(pool="lakehouse", outlets=[REPORT])
+    @task(pool="lakehouse", inlets=[table("gold.rpt_daily_net_revenue_v2")], outlets=[REPORT])
     def publish(ds=None):
         out = subprocess.run(
             ["/opt/lab-venv/bin/python", "-m", "scripts.part19_pipeline", "publish", "--day", ds],

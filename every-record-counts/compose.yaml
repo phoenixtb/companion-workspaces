@@ -42,15 +42,33 @@ x-airflow: &airflow
     LAB_S3_ENDPOINT: http://seaweedfs:8333
     LAB_TRINO_URL: http://trino:8080
     LAB_TRINO_HOST: trino
+    LAB_AIRFLOW_URL: http://airflow-apiserver:8080   # Part 22: the SLO check reads run states from the REST API
     DBT_PROFILES_DIR: /opt/lab/dbt/larkspur
     DBT_TARGET_PATH: /tmp/dbt/target   # the lab folder is mounted read-only
     DBT_LOG_PATH: /tmp/dbt/logs
     DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
     PYTHONDONTWRITEBYTECODE: "1"
+    # Part 22: OpenLineage. Airflow's provider writes one event per line to a file (the lab replays the file into
+    # OpenMetadata later: both don't fit in memory beside Trino); dbt-ol, started by the dbt tasks, writes its own.
+    AIRFLOW__OPENLINEAGE__NAMESPACE: larkspur
+    AIRFLOW__OPENLINEAGE__TRANSPORT: '{"type": "file", "log_file_path": "/opt/openlineage/airflow.jsonl", "append": true}'
+    LAB_DBT_OPENLINEAGE: "1"   # scripts.part17_dbt runs dbt-ol instead of dbt
+    OPENLINEAGE__TRANSPORT__TYPE: file
+    OPENLINEAGE__TRANSPORT__LOG_FILE_PATH: /opt/openlineage/dbt.jsonl
+    OPENLINEAGE__TRANSPORT__APPEND: "true"
+    # Part 22: OpenTelemetry metrics and traces to the collector (the SDK reads the standard OTEL_* variables).
+    AIRFLOW__METRICS__OTEL_ON: "True"
+    AIRFLOW__TRACES__OTEL_ON: "True"
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+    OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+    OTEL_SERVICE_NAME: airflow   # traces otherwise say unknown_service
+    OTEL_TRACES_EXPORTER: otlp_proto_http   # the default, `otlp`, is the gRPC exporter: it ignores the protocol above
+    OTEL_METRIC_EXPORT_INTERVAL: "15000"
   volumes:
     - ./airflow/dags:/opt/airflow/dags:ro
     - .:/opt/lab:ro          # the lab's scripts, SQL, dbt project and raw files: what the tasks run
     - airflow-logs:/opt/airflow/logs
+    - ./data/lab/part22/openlineage:/opt/openlineage   # Part 22: the OpenLineage event files (writable)
   depends_on: &airflow-depends
     airflow-init: { condition: service_completed_successfully }
 
@@ -332,7 +350,8 @@ services:
   airflow-scheduler:
     <<: *airflow
     command: scheduler
-    mem_limit: 1536m   # the LocalExecutor's task processes (dbt, PyIceberg) live inside this container
+    mem_limit: 2g   # the LocalExecutor's task processes (dbt, PyIceberg) live inside this container; 1.5 GB until Part 22,
+                    # whose dbt-ol (it parses every model's SQL after dbt) took the peak to 1.45 GiB
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8974/health"]
       interval: 10s
@@ -351,6 +370,95 @@ services:
       timeout: 15s
       retries: 20
 
+  # ---------- orchestrate (Part 22): an OpenTelemetry Collector that keeps what Airflow sends in a file ----------
+  otel-collector:
+    image: ${OTEL_COLLECTOR_IMAGE}
+    profiles: [orchestrate]
+    command: ["--config=/etc/otelcol/lab.yaml"]
+    volumes:
+      - ./otel/collector.yaml:/etc/otelcol/lab.yaml:ro
+      - ./data/lab/part22/otel:/otel   # metrics.jsonl, traces.jsonl (OTLP JSON, one batch per line)
+    environment:
+      GOMEMLIMIT: 160MiB
+    mem_limit: 256m
+
+  # ---------- lineage (Part 22): OpenMetadata 2.0 as the OpenLineage backend ----------
+  # Marquez, the OpenLineage reference backend, has had no release since 0.50.0 (2024) and publishes amd64 images only;
+  # OpenMetadata (Apache 2.0) accepts OpenLineage events over HTTP and ships arm64 images. It needs a search engine
+  # and a database: Elasticsearch here, the lab PostgreSQL for the database. About 2.5 GB, so the lab runs it with
+  # core only (Trino and Airflow stopped) and replays the event files the pipelines wrote.
+  openmetadata-db:
+    image: ${POSTGRES_IMAGE}
+    profiles: [lineage]
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      OPENMETADATA_DB_PASSWORD: ${OPENMETADATA_DB_PASSWORD}
+    entrypoint: ["/bin/bash", "/openmetadata-db.sh"]
+    volumes:
+      - ./postgres/openmetadata-db.sh:/openmetadata-db.sh:ro
+    mem_limit: 128m
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  openmetadata-search:
+    image: ${ELASTICSEARCH_IMAGE}
+    profiles: [lineage]
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m   # OpenMetadata's quickstart uses 1 GB; the lab's index is tiny
+      # Lab only: Elasticsearch stops placing shards when its disk is 90% full (the default high watermark), and a
+      # laptop's Docker disk often is (92% here). Raised, not switched off; production keeps the defaults and adds disk.
+      cluster.routing.allocation.disk.watermark.low: 95%
+      cluster.routing.allocation.disk.watermark.high: 97%
+      cluster.routing.allocation.disk.watermark.flood_stage: 98%
+    volumes:
+      - openmetadata-search:/usr/share/elasticsearch/data
+    mem_limit: 1280m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      retries: 30
+
+  openmetadata-migrate:
+    image: ${OPENMETADATA_IMAGE}
+    profiles: [lineage]
+    command: ./bootstrap/openmetadata-ops.sh migrate
+    environment: &openmetadata-env
+      DB_DRIVER_CLASS: org.postgresql.Driver
+      DB_SCHEME: postgresql
+      DB_PARAMS: allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: openmetadata
+      DB_USER_PASSWORD: ${OPENMETADATA_DB_PASSWORD}
+      OM_DATABASE: openmetadata_db
+      SEARCH_TYPE: elasticsearch
+      ELASTICSEARCH_HOST: openmetadata-search
+      ELASTICSEARCH_PORT: "9200"
+      ELASTICSEARCH_SCHEME: http
+      PIPELINE_SERVICE_CLIENT_ENABLED: "false"   # no ingestion container: lineage arrives as OpenLineage events
+      OPENMETADATA_HEAP_OPTS: -Xms512m -Xmx1g
+    mem_limit: 1536m
+    depends_on:
+      openmetadata-db: { condition: service_completed_successfully }
+      openmetadata-search: { condition: service_healthy }
+
+  openmetadata:
+    image: ${OPENMETADATA_IMAGE}
+    profiles: [lineage]
+    environment: *openmetadata-env
+    ports:
+      - "8585:8585"   # UI and API
+      - "8586:8586"   # admin: health and metrics
+    mem_limit: 1536m
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8586/healthcheck"]
+      interval: 10s
+      retries: 60
+    depends_on:
+      openmetadata-migrate: { condition: service_completed_successfully }
+
 volumes:
   seaweedfs-data:
   postgres-data:
@@ -358,3 +466,4 @@ volumes:
   kafka-data:
   spark-state:
   airflow-logs:
+  openmetadata-search:

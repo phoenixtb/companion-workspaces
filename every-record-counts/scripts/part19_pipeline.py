@@ -24,7 +24,7 @@ import re
 import sys
 import time
 import urllib.request
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import duckdb
@@ -132,16 +132,27 @@ def checks(day: date) -> dict[str, list]:
     return out
 
 
+PUBLISHED_THROUGH = "larkspur.published-through-upload-date"
+PUBLISHED_AT = "larkspur.published-at"
+
+
 def publish(day: date) -> dict:
     """Point the `published` tag at the report snapshot the checks just passed. Readers who must see only checked
     numbers read `FOR VERSION AS OF 'published'`; the table's main branch moves with every dbt build."""
+    from pyiceberg.table.update.snapshot import ManageSnapshots
+
     table = cat9.pyiceberg("pipeline").load_table(REPORT)
     snap = table.current_snapshot().snapshot_id
     previous = table.metadata.refs.get(TAG)
-    with table.manage_snapshots() as ms:
-        if previous:
-            ms.remove_tag(TAG)
-        ms.create_tag(snap, TAG)
+    # Part 22: the same commit records which upload days the published snapshot covers, so a freshness check can ask
+    # the table, not the scheduler. A re-run of an older day doesn't move it back.
+    covered = max(str(day), table.properties.get(PUBLISHED_THROUGH, ""))
+    with table.transaction() as tx:
+        with ManageSnapshots(transaction=tx) as ms:
+            if previous:
+                ms.remove_tag(TAG)
+            ms.create_tag(snap, TAG)
+        tx.set_properties({PUBLISHED_THROUGH: covered, PUBLISHED_AT: datetime.now(UTC).isoformat(timespec="seconds")})
     uk = trino(f"""SELECT net_minor FROM {CAT}.{REPORT} FOR VERSION AS OF '{TAG}'
                    WHERE country = 'GB' AND business_date = DATE '{day}'""")
     out = {

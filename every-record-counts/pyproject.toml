@@ -17,7 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # Part 17: dbt v1 and its adapters (`uv sync --extra dbt`). dbt-oss (v2) needs its own environment: `make dbt-oss-install`.
-dbt = ["dbt-core==1.12.6", "dbt-trino==1.11.0", "dbt-duckdb==1.11.1"]
+dbt = ["dbt-core==1.12.6", "dbt-trino==1.11.0", "dbt-duckdb==1.11.1", "openlineage-dbt==1.54.0"]
 
 [dependency-groups]
 dev = ["pytest>=9", "ruff>=0.17"]

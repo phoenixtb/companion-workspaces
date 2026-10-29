@@ -1,0 +1,30 @@
+# Part 22: a lab OpenTelemetry Collector. Airflow sends metrics and traces over OTLP/HTTP; the collector writes
+# them to files (one JSON batch per line) and logs a one-line summary per batch. A real one would export to
+# Prometheus, Tempo, or a vendor instead.
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  memory_limiter:            # refuse data before the container's 256 MB limit
+    check_interval: 1s
+    limit_mib: 180
+  batch: {}
+exporters:
+  debug:
+    verbosity: basic
+  file/metrics:
+    path: /otel/metrics.jsonl
+  file/traces:
+    path: /otel/traces.jsonl
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [file/metrics, debug]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [file/traces, debug]

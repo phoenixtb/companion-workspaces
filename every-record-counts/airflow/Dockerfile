@@ -12,6 +12,9 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/lab-venv \
     UV_PYTHON_INSTALL_DIR=/opt/uv-python \
     UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1
+# Part 22: the image ships apache-airflow-providers-openlineage 2.20.1; pin the current release into Airflow's own
+# interpreter (Airflow itself pinned, so pip can't move it).
+RUN pip install --no-cache-dir "apache-airflow==3.3.2" "apache-airflow-providers-openlineage==2.20.3"
 USER root
 RUN mkdir -p /opt/lab-venv /opt/uv-python /opt/lab-build && chown airflow:0 /opt/lab-venv /opt/uv-python /opt/lab-build
 USER airflow

@@ -145,9 +145,13 @@ def land(only: list[str] | None = None) -> dict[str, int]:
 
 
 def dbt(*args: str, v2: bool = False, project: Path = PROJECT, echo: bool = True) -> subprocess.CompletedProcess:
-    """Run one dbt command in a project directory (its profiles.yml lives there too). v2 = dbt-oss."""
-    exe = [str(DBT2)] if v2 else [str(Path(sys.executable).parent / "dbt")]
+    """Run one dbt command in a project directory (its profiles.yml lives there too). v2 = dbt-oss.
+    Part 22: with LAB_DBT_OPENLINEAGE=1 (set in the Airflow containers), dbt-ol wraps dbt and emits OpenLineage
+    events for every node it ran, configured by the OPENLINEAGE__* variables."""
+    wrapper = "dbt-ol" if os.environ.get("LAB_DBT_OPENLINEAGE") == "1" else "dbt"
+    exe = [str(DBT2)] if v2 else [str(Path(sys.executable).parent / wrapper)]
     env = {**os.environ, "DBT_PROFILES_DIR": str(project), "DBT_SEND_ANONYMOUS_USAGE_STATS": "false"}
+    env["PATH"] = f"{Path(sys.executable).parent}{os.pathsep}{env.get('PATH', '')}"  # dbt-ol starts `dbt` from PATH
     run = subprocess.run([*exe, *args], cwd=project, env=env, capture_output=True, text=True)
     if echo:
         print(run.stdout, end="")

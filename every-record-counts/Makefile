@@ -2,11 +2,12 @@
 COMPOSE := docker compose
 CORE := --profile core
 BATCH := --profile core --profile batch
-ALL := --profile core --profile batch --profile olap --profile stream --profile orchestrate
+ALL := --profile core --profile batch --profile olap --profile stream --profile orchestrate --profile lineage
 STREAM := --profile core --profile stream
 ORCH := --profile core --profile batch --profile orchestrate
+LINEAGE := --profile core --profile lineage
 
-.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-orchestrate airflow stop-batch stop-olap stop-stream stop-orchestrate down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
+.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -37,8 +38,8 @@ up-olap: up-core  ## start core plus ClickHouse (Part 13; stop Spark first, they
 up-stream: up-core  ## start core plus Kafka and Kafka Connect with Debezium (Part 16)
 	$(COMPOSE) $(STREAM) up -d --wait --no-deps kafka connect
 
-up-orchestrate: up-trino  ## start core, Trino and Airflow 3.3 (api-server on :8090, scheduler, dag-processor; Part 19)
-	$(COMPOSE) $(ORCH) up -d --wait --build airflow-apiserver airflow-scheduler airflow-dag-processor
+up-orchestrate: up-trino  ## start core, Trino and Airflow 3.3 (api-server on :8090, scheduler, dag-processor; Part 19) + OTel collector (Part 22)
+	$(COMPOSE) $(ORCH) up -d --wait --build otel-collector airflow-apiserver airflow-scheduler airflow-dag-processor
 
 stop-batch:  ## stop Trino and Spark, keep core running
 	$(COMPOSE) $(BATCH) stop trino spark
@@ -52,8 +53,15 @@ stop-stream:  ## stop Kafka and Connect, keep their data volume
 airflow:  ## an Airflow CLI command in the scheduler container, e.g. make airflow CMD="dags list" (Part 19)
 	$(COMPOSE) $(ORCH) exec -T airflow-scheduler airflow $(CMD)
 
+up-lineage: up-core  ## start core plus OpenMetadata (Part 22; stop Trino and Airflow first, they don't fit together)
+	@! $(COMPOSE) $(ORCH) ps --status running --services | grep -qxE 'trino|airflow-scheduler|spark' || (echo "stop Trino, Spark and Airflow first: make stop-orchestrate stop-batch" && false)
+	$(COMPOSE) $(LINEAGE) up -d --wait openmetadata-search openmetadata
+
+stop-lineage:  ## stop OpenMetadata, keep its search index and database
+	$(COMPOSE) $(LINEAGE) stop openmetadata openmetadata-search
+
 stop-orchestrate:  ## stop Airflow, keep its database and logs
-	$(COMPOSE) $(ORCH) stop airflow-apiserver airflow-scheduler airflow-dag-processor
+	$(COMPOSE) $(ORCH) stop airflow-apiserver airflow-scheduler airflow-dag-processor otel-collector
 
 down:  ## stop everything, keep data volumes
 	$(COMPOSE) $(ALL) down

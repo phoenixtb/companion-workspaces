@@ -119,6 +119,19 @@ wheels = [
 ]
 
 [[package]]
+name = "anyio"
+version = "4.15.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "idna" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a9/d2/f4d173e22df740bc37b1db102b386ba719b66e95b0f0d751f556b387e6d2/anyio-4.15.1.tar.gz", hash = "sha256:9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94", size = 276966, upload-time = "2026-09-05T10:42:39.44Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/12/b8/4bd346e22b28902df4d651910f5242c28d84e4a5c2435ca5c3f797ed7e2e/anyio-4.15.1-py3-none-any.whl", hash = "sha256:6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101", size = 132079, upload-time = "2026-09-05T10:42:37.923Z" },
+]
+
+[[package]]
 name = "attrs"
 version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -510,6 +523,7 @@ dbt = [
     { name = "dbt-core" },
     { name = "dbt-duckdb" },
     { name = "dbt-trino" },
+    { name = "openlineage-dbt" },
 ]
 
 [package.dev-dependencies]
@@ -527,6 +541,7 @@ requires-dist = [
     { name = "duckdb", specifier = ">=2.0" },
     { name = "fastavro", specifier = ">=1.13" },
     { name = "numpy", specifier = ">=2.3" },
+    { name = "openlineage-dbt", marker = "extra == 'dbt'", specifier = "==1.54.0" },
     { name = "openpyxl", specifier = ">=3.1" },
     { name = "polars", extras = ["iceberg"], specifier = ">=2.1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3" },
@@ -637,6 +652,53 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/cb/d3/a9dcec71f16f8cac1ac64e6c764eec6bac848fe96ef5d9e362bd5201c5b2/giturlparse-0.16.0.tar.gz", hash = "sha256:d84b1cc1a211273af6f6e944555cdccd3468c2c14b9564758042bcdd4d44c5ef", size = 16705, upload-time = "2026-10-13T13:23:48.109Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/59/70/fe161143f513a7c2eb087d6b16d59f67f25df3be2f0e12e8e76d5af5da60/giturlparse-0.16.0-py2.py3-none-any.whl", hash = "sha256:c4812b7227991d23ada03bc06b34c001de74907a5ea6e293e087d881b348d4bc", size = 17176, upload-time = "2026-10-13T13:23:41.487Z" },
+]
+
+[[package]]
+name = "h11"
+version = "0.16.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6fb3c75474d40b3052059d95df7e73351460c8588d963/h11-0.16.0.tar.gz", hash = "sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1", size = 101250, upload-time = "2025-04-24T03:35:25.427Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl", hash = "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86", size = 37515, upload-time = "2025-04-24T03:35:24.344Z" },
+]
+
+[[package]]
+name = "httpcore2"
+version = "2.16.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "h11" },
+    { name = "truststore" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c0/61/afa9d6b7452f9eca73f73d45324eb0bb52f098fd5e6049bf6b8263be9b4e/httpcore2-2.16.0.tar.gz", hash = "sha256:c72cd0413563b17e1cd8354677dff887466f8ec2551679759e93126534428643", size = 69886, upload-time = "2026-10-21T07:09:45.31Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/af/c2/ce417c397afa5181f0e3c6ff01a4d01639414e1adef08730d97571297151/httpcore2-2.16.0-py3-none-any.whl", hash = "sha256:5c4358319f2602d984ad93182c9fee5160f22e9da7babdda870a5e7c4e2dc34f", size = 85070, upload-time = "2026-10-21T07:09:42.802Z" },
+]
+
+[[package]]
+name = "httpx2"
+version = "2.16.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio", marker = "sys_platform != 'emscripten'" },
+    { name = "httpcore2", marker = "sys_platform != 'emscripten'" },
+    { name = "httpx2-jsfetch", marker = "sys_platform == 'emscripten'" },
+    { name = "idna" },
+    { name = "truststore", marker = "sys_platform != 'emscripten'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/43/73/5ca2cedf5e4e50423d1c258877865a6b62793633b561c58499f8aeb33b7e/httpx2-2.16.0.tar.gz", hash = "sha256:0d54c98128e8f2ff7fbbde0fca8c359e5f032edeaaaac443cdb7f31f685bcd7f", size = 103116, upload-time = "2026-10-21T07:09:46.348Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7b/3d/2e4bc4fd1ef9770871669adb348d612a6e4786b303a23f9935b81c48dd60/httpx2-2.16.0-py3-none-any.whl", hash = "sha256:fd2c5d7909e8d86fe92d53020c310ca0e4e431b838c207c5754b9bbf0308d49a", size = 97880, upload-time = "2026-10-21T07:09:44.01Z" },
+]
+
+[[package]]
+name = "httpx2-jsfetch"
+version = "1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cd/c4/0e5636363151a2a1795e0a77617168b9ca438e1748ec05fc9b5687f93d64/httpx2_jsfetch-1.0.tar.gz", hash = "sha256:70a0e3eabfef7cce5ad9c629f7d01ca05e418f586646f4ddf14782e4c1454c60", size = 6872, upload-time = "2026-08-07T00:13:07.492Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/43/832f631d32e4f1211caa2ba368317739fe71f0b8530e4c9d15dc454bac2a/httpx2_jsfetch-1.0-py3-none-any.whl", hash = "sha256:cb916b707601e69a07721aabc8f3f6659be3a6893bc1ff5c6f9e02241df2da32", size = 6382, upload-time = "2026-08-07T00:13:06.567Z" },
 ]
 
 [[package]]
@@ -984,6 +1046,60 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e9/98/d27552990f1bd611ef3e7466adadc78312ea2df63b83aad47fdc3d3ca8df/numpy-2.5.4-cp313-cp313-win32.whl", hash = "sha256:5258bc06526964be5face2fc6f756857a3f24f21ec3e72ca131337a75b165d6c", size = 6134537, upload-time = "2026-10-10T20:03:30.511Z" },
     { url = "https://files.pythonhosted.org/packages/90/8c/140a40398a66b4471211be1affdb6ed24c486d581bd28d07b7f2fcb69540/numpy-2.5.4-cp313-cp313-win_amd64.whl", hash = "sha256:8b4d2fd2d34e5f8c9235ee787de5631a37a28402b15cb80814df973d2be54129", size = 12566113, upload-time = "2026-10-10T20:03:32.612Z" },
     { url = "https://files.pythonhosted.org/packages/34/52/01d205e5e8ccb27b2b0b141e801f22b830198c979111b0fa44771438d9a9/numpy-2.5.4-cp313-cp313-win_arm64.whl", hash = "sha256:bc39ac66a7a9a3fbd6134fda43136b60ffde99c8f4501e64e0d2b24da137babf", size = 10519523, upload-time = "2026-10-10T20:03:35.163Z" },
+]
+
+[[package]]
+name = "openlineage-dbt"
+version = "1.54.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dbt-core" },
+    { name = "openlineage-integration-common" },
+    { name = "tqdm" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b1/4b/0d3a15a02b7822ceb3472c451d1420e38c90ecdd5d835ddcaaac2ac89b10/openlineage_dbt-1.54.0-py3-none-any.whl", hash = "sha256:9d1cbe3264a5f6aaeafb7d61d50a4b76c517d813ec908e703f06d926ac212344", size = 6727, upload-time = "2026-10-12T19:46:38.838Z" },
+]
+
+[[package]]
+name = "openlineage-integration-common"
+version = "1.54.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+    { name = "openlineage-python" },
+    { name = "openlineage-sql" },
+    { name = "pyyaml" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c6/22/b67c8fbfc2e556bb15120a13defc4c7e2a3f9af9c2204d3cb01cb84c1470/openlineage_integration_common-1.54.0-py3-none-any.whl", hash = "sha256:374aa6610857d7ac1bd3f7d6e7aa16136096f27eaa0145c52552db4cd9a8bd23", size = 69421, upload-time = "2026-10-12T19:46:39.818Z" },
+]
+
+[[package]]
+name = "openlineage-python"
+version = "1.54.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+    { name = "httpx2" },
+    { name = "packaging" },
+    { name = "python-dateutil" },
+    { name = "pyyaml" },
+    { name = "requests" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/70/d2/6637b6a4bcce2a3d46be255279776e29fb2a0816864d2b724baf67122736/openlineage_python-1.54.0-py3-none-any.whl", hash = "sha256:d8df45da51e82131c0f804842c82df4dfbc5dbcf4d70cac7fdb0819c23236f29", size = 128273, upload-time = "2026-10-12T19:46:40.978Z" },
+]
+
+[[package]]
+name = "openlineage-sql"
+version = "1.54.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/37/16/d4df62bbcd1b60f65abea54a5210dd40b71b498fe819a78587e5d89b7970/openlineage_sql-1.54.0.tar.gz", hash = "sha256:bb9b89537c9ea4cd5e7186af8b76a983acb0838816e0918b454464ffc388d418", size = 44299, upload-time = "2026-10-12T19:46:46.523Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/0a/1e92a9f4b7b13fd9a76843110bf8880487981b78ea9775fd11db6abe0ca6/openlineage_sql-1.54.0-cp310-abi3-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:fae9b3568f640ad49d38af4f8d55f2bc3c473fe2ca992981656fefa1b7b9099d", size = 5735339, upload-time = "2026-10-12T19:46:42.212Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/1b/9a0dca1a2fac3ce3685c3f62a1e3ab4aa10a43c8d132604ddf57ff13bb8c/openlineage_sql-1.54.0-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:e60db32f0c1fb3da278375ddf9bc2a8f3f5c33e5a02d4579074123a91d4ebda3", size = 2856721, upload-time = "2026-10-12T19:46:43.991Z" },
+    { url = "https://files.pythonhosted.org/packages/49/bd/ac9faa0b7fb1d2364eb6d45ed1e9d8046b4676d27b86e6ff98ee17f68e7b/openlineage_sql-1.54.0-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:50474ddc8ae9532b03f913c10858c9702acf138eb76a9fe661acc5c4d8a5775b", size = 3055968, upload-time = "2026-10-12T19:46:45.16Z" },
 ]
 
 [[package]]
@@ -1784,6 +1900,18 @@ wheels = [
 ]
 
 [[package]]
+name = "tqdm"
+version = "4.70.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0d/ea/b2a5bd54b28a324dae8211928b2d730b6547500342c7e6c6dea08bd0a485/tqdm-4.70.1.tar.gz", hash = "sha256:cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4", size = 171846, upload-time = "2026-09-11T07:25:16.601Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a7/03/921a3d3c75785aca9ebfbfcabfbc3a1be12e2ab5265deb026d55a5a3f83e/tqdm-4.70.1-py3-none-any.whl", hash = "sha256:c293e525e6fef9c20e8728fd4612df02a0aa31bb5fe91ecd93e123b1b7bffa73", size = 80199, upload-time = "2026-09-11T07:25:14.599Z" },
+]
+
+[[package]]
 name = "trino"
 version = "0.340.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1799,6 +1927,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/cd/81/052f28bb45e90c2344187ee472ef67ffb56ec565fe2e05c3e94a96bde3c2/trino-0.340.0.tar.gz", hash = "sha256:181cf0df1177c54699fe138df09932a95bbb249062375938f2c45c8db0ab39f2", size = 62008, upload-time = "2026-09-23T10:18:30.206Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4f/de/5c2f5b12816c4c88ba4f41299a2cedbc4b3a2f1375ecc8f2229b07afe75d/trino-0.340.0-py3-none-any.whl", hash = "sha256:908aa292d7216e79370581f1fb089e8052d08a5f48e839c6f6713a4fa2998e1c", size = 63877, upload-time = "2026-09-23T10:18:29.111Z" },
+]
+
+[[package]]
+name = "truststore"
+version = "0.10.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ee/9f/c5201d42a484c061e528825fc8e2d565f5abd50a4ced6fb7d29c4ec99b2b/truststore-0.10.5.tar.gz", hash = "sha256:30d36967ccaded5cbb38d602c433f53600036c79d502f4533a49b60a03bbefcd", size = 28091, upload-time = "2026-10-12T22:27:31.808Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/51/e9/3a7820be2bb0fe53b6bc9c3be26d3d1158004e4c3ab953aa6840b955b1e9/truststore-0.10.5-py3-none-any.whl", hash = "sha256:9aaaedaefaf06d8b206278cf8b5012bc897f485a874503501e12d776df78951c", size = 19017, upload-time = "2026-10-12T22:27:30.377Z" },
 ]
 
 [[package]]

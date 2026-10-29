@@ -20,3 +20,11 @@ def reconciliation_failed(context: dict) -> None:
     ti = context.get("task_instance")
     log.warning("RECONCILIATION FAILED: %s for upload day %s; publish withheld. See gold.daily_controls",
                 getattr(ti, "dag_id", "?"), context.get("ds"))  # fmt: skip
+
+
+def slo_breached(context: dict) -> None:
+    """Part 22: the SLO check's failure callback. The failing indicators are in the task log and in gold.slo_results
+    (status = 'FAIL'); a real one would page the report's owner and post to the consumers' channel."""
+    when = context.get("logical_date")
+    when = when.in_timezone("Europe/London") if hasattr(when, "in_timezone") else when
+    log.warning("SLO BREACHED: larkspur_data_slo, the %s check; see gold.slo_results", when)
