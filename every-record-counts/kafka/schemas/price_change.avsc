@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "PriceChange",
+  "namespace": "com.larkspur.catalog",
+  "doc": "A shelf price taking effect for one SKU in one country. Money in integer minor units of `currency`; effective_from is UTC.",
+  "fields": [
+    {"name": "sku", "type": "string"},
+    {"name": "country", "type": "string"},
+    {"name": "currency", "type": "string"},
+    {"name": "price_minor", "type": "long"},
+    {"name": "effective_from", "type": {"type": "long", "logicalType": "timestamp-millis"}, "doc": "when the price applies: the version's event time"}
+  ]
+}

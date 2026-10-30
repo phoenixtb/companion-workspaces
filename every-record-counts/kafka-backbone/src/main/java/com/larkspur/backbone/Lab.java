@@ -31,6 +31,7 @@ final class Lab {
 
     static final String POS_TOPIC = "larkspur.pos.basket-events";
     static final String CLICK_TOPIC = "larkspur.clickstream.events";
+    static final String PRICE_TOPIC = "larkspur.catalog.price-changes";   // Part 28
     static final String BOOTSTRAP = System.getenv().getOrDefault("LAB_KAFKA", "localhost:9092");
     static final String REGISTRY =
             System.getenv().getOrDefault("LAB_REGISTRY", "http://localhost:8085/apis/registry/v3");

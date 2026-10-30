@@ -410,7 +410,7 @@ services:
       context: ./flink
       args:
         FLINK_IMAGE: ${FLINK_IMAGE}
-    image: every-record-counts/flink:2.2.1-java17-kafka-5.0.0-avro
+    image: every-record-counts/flink:2.2.1-java17-kafka-5.0.0-avro-iceberg-1.12.0
     profiles: [stream]
     command: jobmanager
     environment:
@@ -431,7 +431,7 @@ services:
       retries: 40
 
   flink-taskmanager:
-    image: every-record-counts/flink:2.2.1-java17-kafka-5.0.0-avro
+    image: every-record-counts/flink:2.2.1-java17-kafka-5.0.0-avro-iceberg-1.12.0
     profiles: [stream]
     command: taskmanager
     environment:

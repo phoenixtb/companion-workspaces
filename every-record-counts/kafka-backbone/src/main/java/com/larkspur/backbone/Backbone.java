@@ -11,6 +11,8 @@ import java.util.logging.Logger;
  *   pos    --day 2026-08-15 [--abort 3]          POS baskets, one Kafka transaction per 1,000; abort one, then retry it
  *   clicks --day 2026-08-14 --schema v1         clickstream events with schema v1, v2_rename or v2
  *   count  --topic larkspur.pos.basket-events   records per isolation level, and the topic's end offsets
+ *   prices [--dir data/lab/part28/prices]       the shelf-price history, one record per price version (Part 28)
+ *   upserts --topic larkspur.analytics.top-stores   an upsert topic replayed: latest value per key (Part 28)
  * </pre>
  * Needs `make up-backbone` (Kafka on localhost:9092, Apicurio Registry on localhost:8085).
  */
@@ -22,7 +24,7 @@ public final class Backbone {
 
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
-            throw new IllegalArgumentException("usage: pos|clicks|count [options]");
+            throw new IllegalArgumentException("usage: pos|clicks|count|prices|upserts [options]");
         }
         APICURIO_CLIENT_LOG.setLevel(Level.SEVERE);
         String[] rest = Arrays.copyOfRange(args, 1, args.length);
@@ -32,6 +34,8 @@ public final class Backbone {
             case "clicks" -> ClickProducer.run(Lab.option(rest, "--day", "2026-08-14"),
                     Lab.option(rest, "--schema", "v1"));
             case "count" -> TopicCounter.run(Lab.option(rest, "--topic", Lab.POS_TOPIC));
+            case "prices" -> PriceProducer.run(Lab.option(rest, "--dir", "data/lab/part28/prices"));
+            case "upserts" -> UpsertReader.run(Lab.option(rest, "--topic", "larkspur.analytics.top-stores"));
             default -> throw new IllegalArgumentException("unknown command " + args[0]);
         }
     }
