@@ -8,7 +8,7 @@ ORCH := --profile core --profile batch --profile orchestrate
 LINEAGE := --profile core --profile lineage
 SERVE := --profile core --profile batch --profile serve
 
-.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-backbone iceberg-sink up-flink up-flink-lake up-realtime up-serve stop-serve stop-flink flink-sql flink-jobs up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
+.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-backbone iceberg-sink up-flink up-flink-lake up-realtime up-serve up-cube stop-serve stop-flink flink-sql flink-jobs up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -76,6 +76,11 @@ up-serve:  ## core, Trino + OPA, Cube (REST :4000, SQL :15432) and Superset (:80
 	$(COMPOSE) $(SERVE) run --rm --no-deps superset-db
 	$(COMPOSE) $(SERVE) run --rm --no-deps --build superset-init
 	$(COMPOSE) $(SERVE) up -d --wait --no-deps cube superset
+
+up-cube:  ## core, Trino + OPA and Cube only, no Superset (Part 33: the agent's MCP server reads Cube's REST API)
+	@! $(COMPOSE) $(ALL) ps --status running --services | grep -qxE 'spark|clickhouse|kafka|connect|flink-jobmanager|flink-taskmanager' || (echo "stop Spark, ClickHouse, Kafka, Connect and Flink first: docker compose --profile batch stop spark; make stop-olap stop-stream" && false)
+	$(MAKE) up-trino
+	$(COMPOSE) $(SERVE) up -d --wait --no-deps cube
 
 stop-serve:  ## stop Cube and Superset, keep Superset's metadata database
 	$(COMPOSE) $(SERVE) stop superset cube

@@ -1,0 +1,66 @@
+# Part 33: the contract of the net_revenue data product, the Cube view Part 31 serves (cube/model/views/metrics.yml).
+# The MCP server (scripts/part33_mcp.py) reads it: the definition, the freshness promise and who may read it are
+# context an agent can quote; `roles` is a rule the server enforces before any query runs.
+apiVersion: v3.2.0
+kind: DataContract
+id: larkspur-net-revenue
+name: Net revenue
+version: 1.0.0
+status: active
+domain: finance
+description:
+  purpose: Net revenue in GBP by country and local business date, the figure in the board pack.
+  usage: >-
+    Net revenue = sales minus refunds; each basket or order once, converted at its business date's FX rate; each
+    refund on its own business date; dates are the store's local business date. Quote it with its date range and
+    currency. Q3 2026 is the restated figure approved at sign-off (Part 25).
+  limitations: >-
+    Price-sensitive until the quarter's results are published: readable by the roles in this contract only. Not a cash
+    figure: PSP fees, chargebacks and settlement timing are bridged in the reconciliation (Part 21).
+team:
+  name: finance-data
+  members:
+    - username: finance-data-team
+      role: owner
+    - username: farah.siddiqui
+      role: consumer
+roles:
+  - role: finance
+    access: read
+    description: Finance controllers and the board pack, all countries.
+  - role: head_office
+    access: read
+    description: Head-office analytics and its assistant, all countries.
+servers:
+  - server: cube
+    type: api
+    location: http://localhost:4000/cubejs-api/v1
+    description: Cube's REST API, view net_revenue (Part 31).
+schema:
+  - name: net_revenue
+    physicalType: view
+    description: The Cube view; one row per requested slice.
+    dataGranularityDescription: Aggregates by country, store, format, business date, month or quarter; no customers.
+    properties:
+      - name: net_revenue
+        logicalType: number
+        classification: restricted
+        description: Sales minus refunds, GBP.
+      - name: country
+        logicalType: string
+        classification: internal
+        description: GB (United Kingdom), IN (India) or SG (Singapore).
+      - name: business_date
+        logicalType: date
+        classification: internal
+        description: The store's local business date, not the UTC date.
+slaProperties:
+  - property: latency
+    value: 1
+    unit: d
+    element: net_revenue.business_date
+    description: Yesterday's business date is included.
+  - property: timeOfAvailability
+    value: "07:00"
+    element: net_revenue.net_revenue
+    description: By 07:00 London time.
