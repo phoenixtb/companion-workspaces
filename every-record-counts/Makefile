@@ -2,12 +2,13 @@
 COMPOSE := docker compose
 CORE := --profile core
 BATCH := --profile core --profile batch
-ALL := --profile core --profile batch --profile olap --profile stream --profile orchestrate --profile lineage
+ALL := --profile core --profile batch --profile olap --profile stream --profile orchestrate --profile lineage --profile serve
 STREAM := --profile core --profile stream
 ORCH := --profile core --profile batch --profile orchestrate
 LINEAGE := --profile core --profile lineage
+SERVE := --profile core --profile batch --profile serve
 
-.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-backbone iceberg-sink up-flink up-flink-lake up-realtime stop-flink flink-sql flink-jobs up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
+.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-backbone iceberg-sink up-flink up-flink-lake up-realtime up-serve stop-serve stop-flink flink-sql flink-jobs up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -68,6 +69,16 @@ up-realtime:  ## Part 30's reduced variant: core, Kafka, Apicurio, Flink (one Ta
 	@! $(COMPOSE) $(ALL) ps --status running --services | grep -qxE 'spark|trino|connect' || (echo "stop Spark, Trino and Connect first: make stop-batch; docker compose --profile stream stop connect" && false)
 	$(MAKE) up-flink-lake
 	$(COMPOSE) $(ALL) up -d --wait --no-deps clickhouse
+
+up-serve:  ## core, Trino + OPA, Cube (REST :4000, SQL :15432) and Superset (:8088); Part 31
+	@! $(COMPOSE) $(ALL) ps --status running --services | grep -qxE 'spark|clickhouse|kafka|connect|flink-jobmanager|flink-taskmanager' || (echo "stop Spark, ClickHouse, Kafka, Connect and Flink first: docker compose --profile batch stop spark; make stop-olap stop-stream" && false)
+	$(MAKE) up-trino
+	$(COMPOSE) $(SERVE) run --rm --no-deps superset-db
+	$(COMPOSE) $(SERVE) run --rm --no-deps --build superset-init
+	$(COMPOSE) $(SERVE) up -d --wait --no-deps cube superset
+
+stop-serve:  ## stop Cube and Superset, keep Superset's metadata database
+	$(COMPOSE) $(SERVE) stop superset cube
 
 stop-flink:  ## stop Flink and Kafka (Part 26)
 	$(COMPOSE) $(STREAM) stop flink-taskmanager flink-jobmanager kafka

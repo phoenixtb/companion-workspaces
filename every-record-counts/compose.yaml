@@ -593,6 +593,95 @@ services:
     depends_on:
       openmetadata-migrate: { condition: service_completed_successfully }
 
+  # ---------- serve (Part 31): the semantic layer and a BI tool, over Trino + OPA (start with `make up-serve`) ----------
+  cube:
+    # Cube Core: the metric definitions (cube/model) served over a REST API (:4000) and a PostgreSQL-wire SQL API
+    # (:15432). No Cube Store: query results are cached in Cube's memory; pre-aggregations would need it.
+    image: ${CUBE_IMAGE}
+    profiles: [serve]
+    environment:
+      CUBEJS_DB_TYPE: trino
+      CUBEJS_DB_HOST: trino
+      CUBEJS_DB_PORT: "8080"
+      CUBEJS_DB_USER: cube                   # the default identity; cube/cube.js picks one per request scope
+      CUBEJS_DB_PRESTO_CATALOG: governed     # the catalog people query: OPA filters and masks (Part 23)
+      CUBEJS_DB_NAME: gold                   # the default schema
+      CUBEJS_API_SECRET: ${CUBE_API_SECRET}  # signs and verifies the REST API's tokens (HS256)
+      CUBEJS_PG_SQL_PORT: "15432"            # the SQL API is off unless a port is set
+      CUBEJS_SQL_USER: superset
+      CUBEJS_SQL_PASSWORD: ${CUBE_SQL_PASSWORD}
+      CUBEJS_CACHE_AND_QUEUE_DRIVER: memory  # the image sets NODE_ENV=production, whose default is Cube Store
+      CUBEJS_DEV_MODE: "false"               # no playground; tokens required
+      CUBEJS_TELEMETRY: "false"
+      NODE_OPTIONS: --max-old-space-size=512 # the V8 heap; the SQL API's native code lives outside it
+      LAB_MISTAKES: ${LAB_MISTAKES:-}   # Part 31's demos only: switch a safeguard in cube/cube.js off
+    ports:
+      - "4000:4000"     # REST API (/cubejs-api/v1/...)
+      - "15432:15432"   # SQL API (PostgreSQL protocol)
+    volumes:
+      - ./cube:/cube/conf:ro   # cube.js and model/
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/readyz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      retries: 30
+    depends_on:
+      trino: { condition: service_healthy }
+
+  superset-db:
+    # One-shot: Superset's metadata database and role in the lab PostgreSQL, created if missing.
+    image: ${POSTGRES_IMAGE}
+    profiles: [serve]
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      SUPERSET_DB_PASSWORD: ${SUPERSET_DB_PASSWORD}
+    entrypoint: ["/bin/bash", "/superset-db.sh"]
+    volumes:
+      - ./postgres/superset-db.sh:/superset-db.sh:ro
+    mem_limit: 128m
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  superset-init:
+    # One-shot: schema migrations, the lab's admin user, default roles and permissions. Safe to re-run.
+    build: &superset-build
+      context: ./superset
+      args:
+        SUPERSET_IMAGE: ${SUPERSET_IMAGE}
+    image: every-record-counts/superset:6.1.0-lab
+    profiles: [serve]
+    environment: &superset-env
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      SUPERSET_DB_PASSWORD: ${SUPERSET_DB_PASSWORD}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD}
+    command:
+      - bash
+      - -c
+      - >
+        superset db upgrade &&
+        (superset fab list-users | grep -q 'username:admin' ||
+        superset fab create-admin --username admin --firstname Lab --lastname Admin
+        --email admin@larkspur.example --password "$$SUPERSET_ADMIN_PASSWORD") &&
+        superset init
+    mem_limit: 1536m
+    depends_on:
+      superset-db: { condition: service_completed_successfully }
+
+  superset:
+    build: *superset-build
+    image: every-record-counts/superset:6.1.0-lab
+    profiles: [serve]
+    environment: *superset-env   # the image's server: gunicorn, 1 worker (gthread, 20 threads) by default
+    ports:
+      - "8088:8088"   # UI and REST API (/api/v1/...)
+    mem_limit: 1536m
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8088/health"]
+      interval: 5s
+      retries: 60
+    depends_on:
+      superset-init: { condition: service_completed_successfully }
+
 volumes:
   seaweedfs-data:
   postgres-data:

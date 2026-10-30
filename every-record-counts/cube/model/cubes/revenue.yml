@@ -1,0 +1,75 @@
+# Part 31: net revenue, defined once. One row per money movement: a basket or online order (its total, converted
+# once, as the payment provider converts it) or a refund (on its own date). Every rule the incident taught is here:
+#   - each sale once: gold.fct_basket is built from accepted events only (Part 21's dispositions);
+#   - refunds on the refund's business date, not the purchase's (Part 4);
+#   - the reporting currency at the rate in force on the business date, Friday's on a weekend (Part 5);
+#   - the store's local business date, not the UTC date (Part 5).
+# The conversion matches dbt's convert_minor macro: half away from zero on the absolute amount, in minor units.
+cubes:
+  - name: revenue
+    description: Money movements (sales and refunds) in GBP at the business date's rate. Use net_revenue.
+    public: false   # consumers read the net_revenue view, not the cube
+    sql: >
+      WITH movements AS (
+        SELECT 'sale' AS kind, transaction_id AS id, date_key, store_key, profile_key, currency, amount_minor
+        FROM gold.fct_basket
+        UNION ALL
+        SELECT 'refund', refund_id, refund_date_key, store_key, NULL, currency, -refund_minor
+        FROM gold.fct_refund
+      )
+      SELECT m.kind, m.kind || ':' || m.id AS movement_id, m.date_key, m.store_key, m.profile_key,
+             m.currency, m.amount_minor,
+             CAST(sign(m.amount_minor) * round(abs(m.amount_minor) * fx.rate) AS bigint) AS amount_gbp_minor
+      FROM movements m
+      JOIN gold.dim_date d ON d.date_key = m.date_key
+      JOIN gold.dim_fx_rate fx
+        ON fx."date" = d."date" AND fx.base_currency = m.currency AND fx.quote_currency = 'GBP'
+
+    joins:
+      - name: stores
+        sql: "{CUBE}.store_key = {stores.store_key}"
+        relationship: many_to_one
+      - name: business_days
+        sql: "{CUBE}.date_key = {business_days.date_key}"
+        relationship: many_to_one
+
+    dimensions:
+      - name: movement_id
+        sql: movement_id
+        type: string
+        primary_key: true
+      - name: kind
+        description: sale or refund
+        sql: kind
+        type: string
+      - name: transaction_currency
+        sql: currency
+        type: string
+
+    measures:
+      - name: net_revenue
+        description: >
+          Sales minus refunds, in GBP: each basket or order converted once at its business date's rate, each refund
+          on its own business date. The figure finance reconciles to the PSP settlement files (Part 21).
+        sql: "CAST({CUBE}.amount_gbp_minor AS DECIMAL(18, 0)) * 0.01"
+        type: sum
+        format: currency
+      - name: sales
+        description: Basket and order totals in GBP, before refunds.
+        sql: "CAST({CUBE}.amount_gbp_minor AS DECIMAL(18, 0)) * 0.01"
+        type: sum
+        filters:
+          - sql: "{CUBE}.kind = 'sale'"
+        format: currency
+      - name: refunds
+        description: Refunds in GBP, as a negative amount, on the refund's business date.
+        sql: "CAST({CUBE}.amount_gbp_minor AS DECIMAL(18, 0)) * 0.01"
+        type: sum
+        filters:
+          - sql: "{CUBE}.kind = 'refund'"
+        format: currency
+      - name: baskets
+        description: Baskets and online orders, each counted once.
+        type: count
+        filters:
+          - sql: "{CUBE}.kind = 'sale'"

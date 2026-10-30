@@ -1,0 +1,44 @@
+# Part 31: the conformed dimensions (Part 4) every metric joins to: one store table, one calendar of business dates.
+cubes:
+  - name: stores
+    public: false
+    sql_table: gold.dim_store
+    dimensions:
+      - name: store_key
+        sql: store_key
+        type: string
+        primary_key: true
+      - name: store_id
+        sql: store_id
+        type: string
+      - name: country
+        description: GB, IN or SG
+        sql: country
+        type: string
+      - name: city
+        sql: city
+        type: string
+      - name: format
+        description: store format, or online
+        sql: format
+        type: string
+
+  - name: business_days
+    public: false
+    sql_table: gold.dim_date
+    dimensions:
+      - name: date_key
+        sql: date_key
+        type: number
+        primary_key: true
+      - name: business_date
+        description: The store's local business date (Part 5). A calendar date, not an instant.
+        sql: '{CUBE}."date"'
+        type: time
+      - name: quarter
+        description: e.g. 2026-Q3
+        sql: quarter
+        type: string
+      - name: month
+        sql: month
+        type: string

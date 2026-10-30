@@ -1,0 +1,42 @@
+# Part 31: conversion, defined once, on the sessions the contract defines (Part 20,
+# contracts/clickstream_sessions.odcs.yaml): 30-minute inactivity, bots out, each SDK retry once, by anonymous_id.
+# gold.web_sessions is personal data with a country row scope (Part 23): through Trino, OPA hashes the identifiers
+# and keeps only the rows of the countries the connecting identity may see.
+cubes:
+  - name: web_sessions
+    public: false
+    sql_table: gold.web_sessions
+
+    dimensions:
+      - name: session_id
+        description: A keyed hash for analyst identities (Part 23), still unique per session.
+        sql: session_id
+        type: string
+        primary_key: true
+      - name: country
+        sql: country
+        type: string
+      - name: platform
+        sql: platform
+        type: string
+      - name: started_at
+        description: When the session's first event happened (UTC instant).
+        sql: started_at
+        type: time
+
+    measures:
+      - name: sessions
+        description: Human sessions under the sessions contract (Part 20).
+        type: count
+      - name: converted_sessions
+        description: Sessions holding a purchase.
+        type: count
+        filters:
+          - sql: "{CUBE}.converted"
+      - name: conversion_rate
+        description: >
+          Converted sessions over sessions, both under the contract product and marketing analytics signed in Part 20.
+          A ratio of two counts, right at any grain; never an average of daily rates.
+        sql: "1e0 * {converted_sessions} / NULLIF({sessions}, 0)"
+        type: number
+        format: percent

@@ -1,0 +1,39 @@
+# Part 31: stock availability, defined once. gold.fct_stock_daily is a periodic snapshot (one row per store, product
+# and business day); stock on hand is semi-additive: it adds across stores and products, never across days (Part 4).
+# So the cube offers no sum of units at all, only counts of store-SKU-days, which add up at any grain. "In stock"
+# means stock at the close of the business day (Part 5), not the snapshot as some stores report it after delivery.
+cubes:
+  - name: stock_days
+    public: false
+    sql_table: gold.fct_stock_daily
+
+    joins:
+      - name: stores
+        sql: "{CUBE}.store_key = {stores.store_key}"
+        relationship: many_to_one
+      - name: business_days
+        sql: "{CUBE}.date_key = {business_days.date_key}"
+        relationship: many_to_one
+
+    dimensions:
+      - name: store_sku_day
+        sql: "CAST({CUBE}.date_key AS varchar) || '|' || {CUBE}.store_key || '|' || {CUBE}.product_key"
+        type: string
+        primary_key: true
+
+    measures:
+      - name: store_sku_days
+        description: Store-SKU-days with a stock snapshot.
+        type: count
+      - name: in_stock_at_close
+        description: Store-SKU-days with stock on the shelf at the close of the business day.
+        type: count
+        filters:
+          - sql: "{CUBE}.closing_on_hand_qty > 0"
+      - name: availability
+        description: >
+          Share of store-SKU-days in stock at the close of the business day: a ratio of two counts, so it is right
+          at any grain (day, week, quarter, store, country). Not a sum of stock across days.
+        sql: "1e0 * {in_stock_at_close} / NULLIF({store_sku_days}, 0)"
+        type: number
+        format: percent

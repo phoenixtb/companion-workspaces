@@ -1,0 +1,29 @@
+{
+  "query": {
+    "measures": [
+      "net_revenue.net_revenue",
+      "net_revenue.refunds"
+    ],
+    "dimensions": [
+      "net_revenue.country"
+    ],
+    "filters": [
+      {
+        "member": "net_revenue.country",
+        "operator": "equals",
+        "values": [
+          "GB"
+        ]
+      }
+    ],
+    "timeDimensions": [
+      {
+        "dimension": "net_revenue.business_date",
+        "dateRange": [
+          "2026-07-01",
+          "2026-09-30"
+        ]
+      }
+    ]
+  }
+}

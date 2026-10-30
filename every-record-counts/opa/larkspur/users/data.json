@@ -5,6 +5,7 @@
   "analysts": {
     "analyst_gb": {"countries": ["GB"]},
     "analyst_in": {"countries": ["IN"]},
-    "analyst_sg": {"countries": ["SG"]}
+    "analyst_sg": {"countries": ["SG"]},
+    "cube": {"countries": ["GB", "IN", "SG"]}
   }
 }

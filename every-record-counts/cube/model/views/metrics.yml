@@ -1,0 +1,31 @@
+# Part 31: what consumers see. Each view is one metric with the dimensions it may be sliced by; the cubes behind
+# them are private. The REST API, the SQL API (Superset) and any later client read these three, nothing else.
+views:
+  - name: net_revenue
+    description: UK, India and Singapore net revenue in GBP by local business date. Finance's number.
+    meta: {owner: finance data team, built_from: dbt gold (daily), freshness: yesterday by 07:00 London, reconciled: Part 21}
+    cubes:
+      - join_path: revenue
+        includes: [net_revenue, sales, refunds, baskets, kind]
+      - join_path: revenue.stores
+        includes: [country, store_id, city, format]
+      - join_path: revenue.business_days
+        includes: [business_date, quarter, month]
+
+  - name: stock_availability
+    description: Share of store-SKU-days in stock at the close of the business day.
+    meta: {owner: retail operations analytics, built_from: dbt gold (daily), freshness: yesterday by 07:00 local}
+    cubes:
+      - join_path: stock_days
+        includes: [availability, in_stock_at_close, store_sku_days]
+      - join_path: stock_days.stores
+        includes: [country, store_id, city, format]
+      - join_path: stock_days.business_days
+        includes: [business_date, quarter, month]
+
+  - name: conversion
+    description: Share of human web and app sessions (Part 20's contract) that hold a purchase.
+    meta: {owner: product analytics, contract: clickstream_sessions 1.0.0, personal_data: row-scoped by country}
+    cubes:
+      - join_path: web_sessions
+        includes: [conversion_rate, converted_sessions, sessions, country, platform, started_at]
