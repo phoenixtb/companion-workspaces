@@ -7,7 +7,7 @@ STREAM := --profile core --profile stream
 ORCH := --profile core --profile batch --profile orchestrate
 LINEAGE := --profile core --profile lineage
 
-.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-backbone iceberg-sink up-flink up-flink-lake stop-flink flink-sql up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
+.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-backbone iceberg-sink up-flink up-flink-lake stop-flink flink-sql flink-jobs up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -69,6 +69,10 @@ stop-flink:  ## stop Flink and Kafka (Part 26)
 
 flink-sql:  ## run a Flink SQL script with the SQL client in the JobManager, e.g. make flink-sql SQL=part26/windows.sql
 	$(COMPOSE) $(STREAM) exec -T flink-jobmanager ./bin/sql-client.sh -f /opt/flink/lab/sql/$(SQL)
+
+flink-jobs:  ## build Part 29's Java job jars (versions 1 and 2, Java 17) into flink-jobs/build/libs
+	./gradlew -q :flink-jobs:shadowJar -PjobVersion=1
+	./gradlew -q :flink-jobs:shadowJar -PjobVersion=2
 
 airflow:  ## an Airflow CLI command in the scheduler container, e.g. make airflow CMD="dags list" (Part 19)
 	$(COMPOSE) $(ORCH) exec -T airflow-scheduler airflow $(CMD)

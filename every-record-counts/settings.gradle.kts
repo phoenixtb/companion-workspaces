@@ -16,3 +16,4 @@ rootProject.name = "every-record-counts"
 
 include("iceberg-api-demo")   // Part 7
 include("kafka-backbone")     // Part 27
+include("flink-jobs")         // Part 29 (Java 17: Flink 2.2 does not run on Java 25)

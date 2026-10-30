@@ -8,6 +8,9 @@ kafka = "4.4.0"       # Part 27: the clients match the broker
 apicurio = "3.3.3"    # Part 27: serdes match the registry
 avro = "1.12.2"       # what Apicurio 3.3.3 builds against
 jackson = "2.21.5"   # the version Apicurio 3.3.3 brings
+flink = "2.2.1"       # Part 29: the cluster's version (Flink 2.2 jobs run on Java 17)
+flink-kafka = "5.0.0-2.2"   # Part 29: the Kafka connector build for Flink 2.2 (no released build for 2.3)
+hadoop-flink = "3.4.3"      # Part 29: the Hadoop client jars in the Flink image (what Iceberg 1.12.0 builds against)
 
 [libraries]
 iceberg-core = { module = "org.apache.iceberg:iceberg-core", version.ref = "iceberg" }
@@ -23,3 +26,12 @@ apicurio-avro-serde = { module = "io.apicurio:apicurio-registry-avro-serde-kafka
 apicurio-sdk = { module = "io.apicurio:apicurio-registry-java-sdk", version.ref = "apicurio" }
 avro = { module = "org.apache.avro:avro", version.ref = "avro" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+flink-streaming-java = { module = "org.apache.flink:flink-streaming-java", version.ref = "flink" }
+flink-connector-base = { module = "org.apache.flink:flink-connector-base", version.ref = "flink" }
+flink-table-runtime = { module = "org.apache.flink:flink-table-runtime", version.ref = "flink" }
+flink-sql-connector-kafka = { module = "org.apache.flink:flink-sql-connector-kafka", version.ref = "flink-kafka" }
+iceberg-flink-runtime = { module = "org.apache.iceberg:iceberg-flink-runtime-2.2", version.ref = "iceberg" }
+hadoop-client-api-flink = { module = "org.apache.hadoop:hadoop-client-api", version.ref = "hadoop-flink" }
+
+[plugins]
+shadow = { id = "com.gradleup.shadow", version = "9.6.1" }

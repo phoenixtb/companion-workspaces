@@ -423,6 +423,8 @@ services:
       - "8081:8081"   # Flink web UI and REST API
     volumes:
       - ./flink/sql:/opt/flink/lab/sql:ro   # SQL scripts for bin/sql-client.sh -f
+      - ./flink-jobs/build/libs:/opt/flink/lab/jobs:ro   # Part 29: job jars for bin/flink run
+      - ./data/lab/flink-state:/flink-state   # Part 29: checkpoints and savepoints, shared with the TaskManager
     mem_limit: 1280m
     healthcheck:
       test: ["CMD-SHELL", "curl -fs localhost:8081/overview | grep -q '\"taskmanagers\":[1-9]'"]
@@ -439,6 +441,9 @@ services:
         jobmanager.rpc.address: flink-jobmanager
         taskmanager.memory.process.size: 1536m
         taskmanager.numberOfTaskSlots: 2
+    volumes:
+      - ./data/lab/part29:/opt/flink/lab/data/part29:ro   # Part 29: the WMS opening-stock file
+      - ./data/lab/flink-state:/flink-state   # Part 29: where the TaskManager writes checkpoints (S3 in production)
     mem_limit: 1792m
     depends_on:
       flink-jobmanager: { condition: service_started }
