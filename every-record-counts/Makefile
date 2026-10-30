@@ -7,7 +7,7 @@ STREAM := --profile core --profile stream
 ORCH := --profile core --profile batch --profile orchestrate
 LINEAGE := --profile core --profile lineage
 
-.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-backbone iceberg-sink up-flink up-flink-lake stop-flink flink-sql flink-jobs up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
+.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-backbone iceberg-sink up-flink up-flink-lake up-realtime stop-flink flink-sql flink-jobs up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -63,6 +63,11 @@ up-flink: env  ## start Kafka and a Flink 2.2 session cluster (JobManager + one 
 up-flink-lake: up-core  ## start core plus Kafka, Apicurio and Flink with the Iceberg runtime; Connect stays off (Part 28)
 	$(COMPOSE) $(STREAM) run --rm --no-deps apicurio-db
 	$(COMPOSE) $(STREAM) up -d --wait --build --no-deps kafka apicurio flink-jobmanager flink-taskmanager
+
+up-realtime:  ## Part 30's reduced variant: core, Kafka, Apicurio, Flink (one TaskManager) and ClickHouse
+	@! $(COMPOSE) $(ALL) ps --status running --services | grep -qxE 'spark|trino|connect' || (echo "stop Spark, Trino and Connect first: make stop-batch; docker compose --profile stream stop connect" && false)
+	$(MAKE) up-flink-lake
+	$(COMPOSE) $(ALL) up -d --wait --no-deps clickhouse
 
 stop-flink:  ## stop Flink and Kafka (Part 26)
 	$(COMPOSE) $(STREAM) stop flink-taskmanager flink-jobmanager kafka
