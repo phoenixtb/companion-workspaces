@@ -279,9 +279,12 @@ def up(port: int) -> bool:
 
 
 def spark_up() -> bool:
-    out = subprocess.run(
-        ["docker", "compose", "ps", "--status", "running", "--services"], cwd=ROOT, capture_output=True, text=True
-    ).stdout
+    try:  # Part 34: a CI runner may have no Docker at all; that means no Spark, not an error
+        out = subprocess.run(
+            ["docker", "compose", "ps", "--status", "running", "--services"], cwd=ROOT, capture_output=True, text=True
+        ).stdout
+    except OSError:
+        return False
     return "spark" in out.split()
 
 

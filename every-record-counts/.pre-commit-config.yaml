@@ -1,0 +1,53 @@
+# Part 34: the platform's checks on every change. Fast hooks run on each commit (seconds, no lab services); the host
+# tests and the lake gate run on each push. The config lives in this folder of a monorepo; install from the repo root:
+#   uv run --project every-record-counts pre-commit install -c every-record-counts/.pre-commit-config.yaml
+# Hooks run from the repository root; `files` limits each to this folder. SKIP=hook-id skips one, and says so.
+minimum_pre_commit_version: "4.4.0" # `language: unsupported` (formerly `system`)
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: 25bcf95026b96e2dd3c0aec3090c3d6ef6ca2e6c # frozen: v0.17.3 (keep in step with ruff in uv.lock)
+    hooks:
+      - id: ruff-check
+        files: ^every-record-counts/
+      - id: ruff-format
+        args: [--check]
+        types_or: [python, pyi] # the hook's default includes Markdown; `make lint` checks Python only
+        files: ^every-record-counts/
+
+  - repo: local
+    hooks:
+      - id: contract-ci
+        name: data contracts (lint, no breaking change without a major version)
+        entry: make -s -C every-record-counts contract-ci CONTRACT_BASE=HEAD
+        language: unsupported
+        files: ^every-record-counts/contracts/
+        pass_filenames: false
+      - id: dbt-parse
+        name: dbt parse (refs, Jinja, YAML)
+        entry: make -s -C every-record-counts dbt-parse
+        language: unsupported
+        files: ^every-record-counts/dbt/
+        pass_filenames: false
+      - id: infra-validate
+        name: OpenTofu fmt and validate
+        entry: make -s -C every-record-counts infra-validate
+        language: unsupported
+        files: ^every-record-counts/infra/
+        pass_filenames: false
+      - id: test-host
+        name: host tests (no lab services)
+        entry: make -s -C every-record-counts test-host
+        language: unsupported
+        files: ^every-record-counts/
+        pass_filenames: false
+        stages: [pre-push]
+      - id: check-lake
+        name: lake gate (make up-trino) - slim dbt build in dev + reconciliation smoke
+        entry: make -s -C every-record-counts check-lake
+        language: unsupported
+        files: ^every-record-counts/(dbt|governance)/
+        pass_filenames: false
+        stages: [pre-push]

@@ -1,0 +1,54 @@
+name: every-record-counts
+
+# Part 34: the fast gate of "Every Record Counts" on every change to its folder. The same `make check` runs on a laptop
+# and in the pre-commit hooks; the lake gate (`make check-lake`) needs the lab's services and stays local.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "every-record-counts/**"
+      - ".github/workflows/every-record-counts.yml"
+  pull_request:
+    paths:
+      - "every-record-counts/**"
+      - ".github/workflows/every-record-counts.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: every-record-counts-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04-arm # the OS and architecture its steps were validated on; ubuntu-latest moves to 26.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: every-record-counts
+    env:
+      UV_LOCKED: "1" # fail if uv.lock is stale instead of re-locking
+      # contract-ci's base: the pushed range's start on main (`auto` if that commit is gone after a force-push);
+      # on a pull request, `auto` = the merge base with main
+      CONTRACT_BASE: ${{ github.event_name == 'push' && github.event.before || 'auto' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # contract-ci reads each contract at the base commit
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.6"
+          working-directory: every-record-counts
+          enable-cache: true
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: "1.13.2"
+          tofu_wrapper: false
+      - name: Install dbt and datacontract-cli
+        run: make dbt-install contracts-install
+      - name: Lint, contracts, dbt parse, host tests
+        run: make check
+      - name: OpenTofu fmt and validate
+        run: make infra-validate

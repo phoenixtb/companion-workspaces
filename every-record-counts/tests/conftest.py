@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -39,6 +40,17 @@ def stack_up() -> bool:
             if s.connect_ex(("localhost", port)):
                 return False
     return True
+
+
+def pytest_collection_modifyitems(config, items) -> None:
+    """Part 34: LAB_HOST_ONLY=1 skips every test that is conditional on a lab service, whether or not the service
+    runs, so `make check` runs the same tests on a laptop with the lab up as on a CI runner without it. A skipif marker
+    whose reason names an install target (dbt, dbt-oss, datacontract-cli) is a host tool, not a service: kept."""
+    if os.environ.get("LAB_HOST_ONLY") != "1":
+        return
+    for item in items:
+        if any("-install`" not in m.kwargs.get("reason", "") for m in item.iter_markers("skipif")):
+            item.add_marker(pytest.mark.skip(reason="LAB_HOST_ONLY=1: needs a lab service"))
 
 
 needs_stack = pytest.mark.skipif(not stack_up(), reason="needs `make up-core` and `make upload`")

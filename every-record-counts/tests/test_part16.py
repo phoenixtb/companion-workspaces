@@ -18,7 +18,7 @@ from scripts import part16_cdc as lab
 from tests.conftest import ROOT, needs_cdc
 
 
-def test_history_replays_to_the_extract():
+def test_history_replays_to_the_extract(lab_manifest):  # reads the raw zone: skipped without `make data`
     h = lab.history()
     for t in lab.TABLES:
         state = lab.state_at(h[t], lab.KEYS[t], lab.END).select(lab.COLS[t])

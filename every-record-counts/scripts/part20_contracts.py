@@ -179,7 +179,10 @@ def ci_one(base: Path | None, head: Path) -> bool:
 def base_ref(ref: str) -> str:
     """`auto`: where this branch left origin/main (a pull request's base), else HEAD (local, uncommitted edits)."""
     if ref != "auto":
-        return ref
+        known = subprocess.run(["git", "cat-file", "-e", f"{ref}^{{commit}}"], cwd=ROOT, capture_output=True)
+        if known.returncode == 0:
+            return ref
+        print(f"base {ref} is not in this clone (a force-push or a new branch?): using auto")  # Part 34
     fork = subprocess.run(["git", "merge-base", "HEAD", "origin/main"], cwd=ROOT, capture_output=True, text=True)
     return fork.stdout.strip() if fork.returncode == 0 else "HEAD"
 

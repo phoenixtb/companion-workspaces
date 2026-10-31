@@ -24,7 +24,7 @@ needs_backbone = pytest.mark.skipif(not up(8333, 8181, 9092, 8085, 8083), reason
 needs_flink_registry = pytest.mark.skipif(not up(9092, 8085, 8081), reason="needs Kafka, Apicurio and `make up-flink`")
 
 
-def test_raw_zone_is_the_yardstick():
+def test_raw_zone_is_the_yardstick(lab_manifest):  # reads the raw zone: skipped without `make data`
     assert p27.raw_lines() == {POS: 22_276, CLICKS: 61_554 + 62_958}
 
 

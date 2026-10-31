@@ -361,3 +361,13 @@ re-checks what it uses in the lab before writing. Sources are in the research no
 | Trino / OPA | as Part 23 | Analyst identities can't read `information_schema` (`SHOW TABLES`, `DESCRIBE` denied); `SELECT … LIMIT 0` returns column types. The REST statement API rejects a trailing `;`. |
 | Not run (prose only) | dbt-mcp 2.9.0, mcp-server-motherduck 1.1.0, `tuannvm/mcp-trino` 4.3.1, OpenMetadata 2.0.7's built-in MCP server, Polaris `polaris-tools/mcp-server` (0.9.0, unreleased) | Versions from PyPI/GitHub on 2026-10-31. |
 | Cube model (Part 31's) | `cube/model/cubes/sessions.yml`: `description` on `country` | Description only, added in Part 33's review round to test whether tool and member descriptions change the agent's choice of dimensions (they didn't: 10 of 10 runs still split conversion by country). A GB-scoped Cube token reads net revenue for all three countries (no row scope on gold revenue), so the contract's `roles` rule binds only the MCP server. |
+
+### Part 34 (lab-verified 2026-10-31)
+
+| Component | Version / artifact | Notes |
+| --- | --- | --- |
+| OpenTofu | 1.13.2 (MPL 2.0; host via Homebrew, CI via `opentofu/setup-opentofu`) | `infra/postgres/`: provider `cyrilgdn/postgresql` 1.27.0 (MPL 2.0), lock file committed (`.terraform.lock.hcl`), local state gitignored. Terraform 1.17.1 is BSL 1.1 (licensor IBM). No released Apache Polaris provider (`apache/terraform-provider-polaris`: "does not yet contain a usable provider"). |
+| pre-commit | 4.7.0 (dev dependency group) | `.pre-commit-config.yaml` in this folder; `minimum_pre_commit_version` 4.4.0 for `language: unsupported`; installed with `-c every-record-counts/.pre-commit-config.yaml`. |
+| ruff-pre-commit | v0.17.3, frozen to commit `25bcf950…` (hooks `ruff-check`, `ruff-format --check`, Python types only) | Same version as ruff in `uv.lock` (a test checks). |
+| GitHub Actions | `actions/checkout` v7.0.1 (`3d3c42e5…`), `astral-sh/setup-uv` v10.3.3 (`68559e99…`), `opentofu/setup-opentofu` v2.0.2 (`a1320f89…`), uv 0.13.6 in CI; runner `ubuntu-24.04-arm` | `.github/workflows/every-record-counts.yml` at the monorepo root. Not `ubuntu-latest`: it moves to Ubuntu 26.04 between 2026-10-19 and 2026-11-19, and the steps were validated on Ubuntu 24.04 arm64. `contract-ci` falls back to `auto` when the pushed range's start isn't in the clone. Committed, not yet run on GitHub (2026-10-31); actionlint 1.7.12: 0 errors; its steps passed in a clean Ubuntu 24.04 arm64 container. |
+| Test switch | `LAB_HOST_ONLY=1` (tests/conftest.py) | Skips every test whose `skipif` names a lab service; keeps tests that need only a host tool (`make dbt-install`, `make contracts-install`). |

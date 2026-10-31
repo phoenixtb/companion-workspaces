@@ -8,7 +8,7 @@ ORCH := --profile core --profile batch --profile orchestrate
 LINEAGE := --profile core --profile lineage
 SERVE := --profile core --profile batch --profile serve
 
-.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-backbone iceberg-sink up-flink up-flink-lake up-realtime up-serve up-cube stop-serve stop-flink flink-sql flink-jobs up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci
+.PHONY: contracts-install contract-ci dbt-ci help env up-core up-batch up-trino up-spark up-olap up-stream up-backbone iceberg-sink up-flink up-flink-lake up-realtime up-serve up-cube stop-serve stop-flink flink-sql flink-jobs up-orchestrate up-lineage airflow stop-batch stop-olap stop-stream stop-orchestrate stop-lineage down reset data upload sellers-api dbt-install dbt-oss-install dbt-lake test lint ci dbt-parse test-host check check-lake infra-validate infra-plan infra-apply infra-destroy
 
 help:  ## list targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-12s %s\n", $$1, $$2}'
@@ -171,3 +171,35 @@ test:  ## run the test suite (stack tests skip themselves if the stack is down)
 	uv run pytest -q
 
 ci: lint test  ## what a CI server would run; this repo runs it locally
+
+# Part 34: the same gate on a laptop, in a pre-commit hook and on a CI runner. `check` needs no lab services (the tests
+# that do are skipped by LAB_HOST_ONLY=1, even when the lab runs), so it is what GitHub Actions runs on every change.
+# `check-lake` needs `make up-trino`: it builds the change in `dev` (Part 18's slim CI) and reconciles what it built.
+dbt-parse:  ## compile the dbt project without a warehouse: refs, macros, YAML, contracts (Part 34)
+	$(DBT) parse --target dev --no-partial-parse
+
+test-host:  ## the tests that need no lab service, the same set on any machine (Part 34)
+	LAB_HOST_ONLY=1 uv run pytest -q
+
+check: lint contract-ci dbt-parse test-host  ## the fast gate: lint, contracts, dbt parse, host tests (Part 34)
+
+check-lake:  ## the lake gate (make up-trino): slim dbt build in an emptied dev, then the reconciliation smoke test (Part 34)
+	uv run python -m scripts.part34_platform lake-check
+
+# OpenTofu (Part 34): the source-domain kit in the lab's PostgreSQL. The provider reads the libpq variables.
+TOFU := PGHOST=localhost PGPORT=5432 PGUSER=larkspur PGPASSWORD=$$(grep '^POSTGRES_PASSWORD=' .env | cut -d= -f2) \
+	PGSSLMODE=disable tofu -chdir=infra/postgres
+infra-validate:  ## tofu fmt check and validate, no database needed (Part 34)
+	tofu -chdir=infra/postgres init -backend=false -input=false -no-color > /dev/null
+	tofu -chdir=infra/postgres fmt -check -recursive
+	tofu -chdir=infra/postgres validate -no-color
+
+infra-plan: env  ## what tofu would change in the lab's PostgreSQL (Part 34)
+	$(TOFU) init -input=false -no-color > /dev/null
+	$(TOFU) plan -input=false -no-color
+
+infra-apply: env  ## create or correct the source-domain schemas, roles and grants (Part 34)
+	$(TOFU) apply -input=false -auto-approve -no-color
+
+infra-destroy: env  ## remove them again (Part 34)
+	$(TOFU) destroy -input=false -auto-approve -no-color
