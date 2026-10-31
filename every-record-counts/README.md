@@ -231,4 +231,4 @@ tests/                                   pytest; `make ci` runs ruff and the tes
 docs/versions.md  docs/injected-defects.md
 ```
 
-There is no remote CI: `make ci` is the pipeline, run locally before every commit.
+`make ci` is the full pipeline, run locally before every commit; it needs the Docker services. The GitHub Actions workflow `.github/workflows/every-record-counts.yml` (Part 34) runs only the host-level gate (`make check`, `make infra-validate`) on pushes that touch this folder.
