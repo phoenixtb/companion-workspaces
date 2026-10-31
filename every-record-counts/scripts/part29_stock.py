@@ -679,8 +679,16 @@ def drain_when_read(job_id: str, timeout: int = 600) -> bool:
         if emitted != last:
             last, since = emitted, time.monotonic()
         if read_to_end() or (emitted > 0 and time.monotonic() - since >= 20):
-            flink_cli("stop", "--drain", "--savepointPath", "file:///flink-state/savepoints", job_id)
-            return True
+            # a source that started without restored state (--allowNonRestoredState) is bounded and can finish on
+            # its own between the check above and the stop: then Flink no longer finds a running job to stop
+            stopped = flink_cli(
+                "stop", "--drain", "--savepointPath", "file:///flink-state/savepoints", job_id, check=False
+            )
+            if "Savepoint completed" in stopped:
+                return True
+            if rest(f"/jobs/{job_id}")["state"] == "FINISHED":
+                return False
+            raise SystemExit(stopped[-3000:])
         time.sleep(2)
     raise SystemExit(f"job {job_id} did not read to the end in {timeout} s")
 
